@@ -63,6 +63,39 @@ contract VaultToken is ERC20, Ownable {
         return totalValue;
     }
 
+    function updateAssetsAndWeights(
+        address[] memory tokenAddresses,
+        address[] memory priceFeeds,
+        uint256[] memory weights
+    ) external onlyOwner {
+        require(
+            tokenAddresses.length == priceFeeds.length &&
+            priceFeeds.length == weights.length,
+            "Arrays must be of equal length"
+        );
+
+        uint256 totalWeight = 0;
+        for (uint256 i = 0; i < weights.length; i++) {
+            require(weights[i] > 0, "Weight must be positive");
+            totalWeight += weights[i];
+        }
+        
+        require(totalWeight == 100, "Total weights must sum to 100");
+
+        // Clear the current tokens array
+        delete tokens;
+
+        // Add the new tokens and their weights
+        for (uint256 i = 0; i < tokenAddresses.length; i++) {
+            tokens.push(TokenData({
+                tokenAddress: tokenAddresses[i],
+                priceFeed: AggregatorV3Interface(priceFeeds[i]),
+                weight: weights[i]
+            }));
+        }
+    }
+
+
     function mint(address to, uint256 amount) external onlyOwner {
         require(calculateVaultTokenValue() >= amount, "Insufficient collateral");
         _mint(to, amount);
