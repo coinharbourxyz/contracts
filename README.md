@@ -14,6 +14,10 @@ forge install uniswap/v3-periphery
 ```bash
 forge install OpenZeppelin/openzeppelin-contracts
 ```
+4. Install **Chainlink Contracts**:
+```bash
+forge install smartcontractkit/chainlink-brownie-contracts --no-commit
+```
 
 Make sure to also update your remappings.txt to include the following:
 
@@ -21,6 +25,7 @@ Make sure to also update your remappings.txt to include the following:
 @uniswap/v3-periphery/=lib/v3-periphery/
 @uniswap/v3-core/=lib/v3-core/
 @openzeppelin/contracts=lib/openzeppelin-contracts/contracts
+@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/src/
 ```
 
 ### .env file
