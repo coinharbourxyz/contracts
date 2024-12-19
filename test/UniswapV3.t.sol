@@ -21,6 +21,7 @@ contract UniswapV3Test is Test {
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address public constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     uint24 public constant FEE = 3000;
 
     function setUp() public {
@@ -130,7 +131,7 @@ contract UniswapV3Test is Test {
         vm.prank(user);
         uint256 amountOut = uniswapV3.swapExactInputSingleHop(
             WETH9,
-            DAI,
+            USDT,
             FEE,
             amountIn
         );
@@ -140,7 +141,7 @@ contract UniswapV3Test is Test {
         assertEq(userBalance, 0.5 ether, "WETH balance mismatch after swap");
 
         console.log("WETH sent: ", amountIn);
-        console.log("DAI received: ", amountOut);
+        console.log("USDT received: ", amountOut);
         assertTrue(amountOut > 0, "Swap output should be greater than 0");
     }
 

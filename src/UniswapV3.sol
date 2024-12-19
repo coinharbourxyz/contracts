@@ -4,6 +4,7 @@ pragma solidity >=0.8.25;
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 interface IWETH9 {
     function deposit() external payable;
@@ -60,7 +61,7 @@ contract UniswapV3 is ReentrancyGuard {
     }
 
     // tokenIn: WETH9
-    // tokenOut: DAI
+    // tokenOut: USDT
     function swapExactInputSingleHop(
         address tokenIn,
         address tokenOut,
