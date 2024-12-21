@@ -35,6 +35,10 @@ contract UniswapV3 is ReentrancyGuard {
         userWETHBalance[msg.sender] += msg.value;
     }
 
+    function getWETHBalance() external view returns (uint256) {
+        return IWETH9(WETH9).balanceOf(address(this));
+    }
+
     // To-do UnwrapETH() function
     // Unwrap WETH back to ETH
     function unwrapETH(uint256 amount) external nonReentrant {

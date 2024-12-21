@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/vault.sol";
 import "@chainlink/contracts/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../src/UniswapV3.sol";
 
 contract VaultTokenTest is Test {
     VaultToken vault;
@@ -19,6 +20,9 @@ contract VaultTokenTest is Test {
 
     address constant UNISWAP_V3_ROUTER =
         address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    
+    UniswapV3 uniswapV3 = new UniswapV3();
+
 
     // Events from VaultToken contract
     event TokensSwapped(address tokenOut, uint256 amountReceived);
@@ -149,12 +153,12 @@ contract VaultTokenTest is Test {
     }
 
     function testDeposit() public {
-        uint256 depositAmount = 1 ether; // Amount to deposit
+        uint256 depositAmount = 1e18; // Amount to deposit
 
         // Log the user's Ether balance before the deposit
         emit log_named_uint(
             "User Ether balance before deposit",
-            user.balance / 1e18
+            user.balance
         );
 
         // Start the prank as the user
@@ -166,12 +170,12 @@ contract VaultTokenTest is Test {
         // Log the user's Ether balance after the deposit
         emit log_named_uint(
             "User Ether balance after deposit",
-            user.balance / 1e18
+            user.balance
         );
         emit log_named_uint("Vault balance of user", vault.balanceOf(user));
         emit log_named_uint(
             "Contract ETH balance",
-            address(vault).balance / 1e18
+            address(vault).balance
         );
 
         // Verify user received vault tokens
@@ -184,7 +188,7 @@ contract VaultTokenTest is Test {
         // Log User's WETH balance
         emit log_named_uint(
             "User's WETH balance",
-            IERC20(WETH).balanceOf(user)
+            uniswapV3.userWETHBalance(user)
         );
 
         // Log User's WBTC balance
@@ -199,10 +203,16 @@ contract VaultTokenTest is Test {
             vault.balanceOf(user)
         );
 
+        // Contract's ETH balance
+        emit log_named_uint(
+            "Contract's ETH balance",
+            address(vault).balance
+        );
+
         // Contract's WETH balance
         emit log_named_uint(
             "Contract's WETH balance",
-            IERC20(WETH).balanceOf(address(vault))
+            uniswapV3.getWETHBalance()
         );
 
         // Contract's WBTC balance
@@ -211,7 +221,7 @@ contract VaultTokenTest is Test {
             IERC20(WBTC).balanceOf(address(vault))
         );
 
-        // vault.withdraw(0.1 ether);
+        vault.withdraw(1e17);
 
         // End the prank
         vm.stopPrank();
