@@ -68,17 +68,17 @@ contract UniswapV3 is ReentrancyGuard {
         uint24 poolFee,
         uint256 amountIn
     ) external nonReentrant returns (uint256 amountOut) {
-        require(
-            tokenIn == WETH9,
-            "TokenIn must be WETH9 to use stored balance"
-        );
-        require(
-            userWETHBalance[msg.sender] >= amountIn,
-            "Insufficient WETH balance"
-        );
+        // require(
+        //     tokenIn == WETH9,
+        //     "TokenIn must be WETH9 to use stored balance"
+        // );
+        // require(
+        //     userWETHBalance[msg.sender] >= amountIn,
+        //     "Insufficient WETH balance"
+        // );
 
         // Deduct the user's WETH balance first
-        userWETHBalance[msg.sender] -= amountIn;
+        // userWETHBalance[msg.sender] -= amountIn;
 
         // IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
         // TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);

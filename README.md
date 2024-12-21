@@ -1,46 +1,93 @@
-## Instructions
+# coinharbour.xyz contracts
 
-Before running the contract, ensure the following dependencies are installed in your Foundry project:
+## Overview
 
-1. Install **Uniswap V3 Core**:
-```bash
-forge install uniswap/v3-core
-```
-2. Install **Uniswap V3 Pheriphery**:
-```bash
-forge install uniswap/v3-periphery
-```
-3. Install **OpenZeppelin Contracts**:
-```bash
-forge install OpenZeppelin/openzeppelin-contracts
-```
-4. Install **Chainlink Contracts**:
-```bash
-forge install smartcontractkit/chainlink-brownie-contracts --no-commit
-```
+This project utilizes Foundry for smart contract development and testing, with integration of Chainlink oracles and Uniswap V3. The setup allows for testing against a mainnet fork using Anvil.
 
-Make sure to also update your remappings.txt to include the following:
+## Prerequisites
 
-```bash
-@uniswap/v3-periphery/=lib/v3-periphery/
-@uniswap/v3-core/=lib/v3-core/
-@openzeppelin/contracts=lib/openzeppelin-contracts/contracts
-@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/src/
-```
+- Ensure you have a Unix-based operating system (Linux or macOS).
+- Install [Zsh](https://www.zsh.org/) because I use it.
 
-### .env file
-Store your INFURA_KEY in .env file and load .env file
-```bash
-source .env
-```
+## Installation Steps
 
-### Mainnet Fork
-Run anvil with mainnet fork:
-```bash
-anvil --fork-url https://mainnet.infura.io/v3/$INFURA_KEY
-```
+1. **Install Foundry**:
+   Open your terminal and run the following command to install Foundry:
+   ```bash
+   curl -L https://foundry.paradigm.xyz | bash
+   ```
 
-### Tests
-```bash
-forge test --fork-url http://127.0.0.1:8545 --match-path test/UniswapV3.t.sol -vv
-```
+2. **Set Up Environment**:
+   After installation, source your environment:
+   ```bash
+   source /home/shubham/.zshenv
+   exec zsh
+   ```
+
+3. **Update Foundry**:
+   Ensure you have the latest version of Foundry:
+   ```bash
+   foundryup
+   ```
+
+4. **Install Dependencies**:
+   Install the necessary libraries for Uniswap and Chainlink:
+   ```bash
+   forge install uniswap/v3-core
+   forge install uniswap/v3-periphery
+   forge install OpenZeppelin/openzeppelin-contracts
+   forge install smartcontractkit/chainlink-brownie-contracts --no-commit
+   ```
+
+5. **Clean Up and Reinstall if Necessary**:
+   If you encounter issues, you can remove and reinstall the Chainlink library:
+   ```bash
+   rm -rf lib/chainlink-brownie-contracts
+   forge install smartcontractkit/chainlink-brownie-contracts --no-commit
+   ```
+
+## Running the Mainnet Fork
+
+1. **Start Anvil**: Get your infura project id from [here](https://app.infura.io/)
+   To run a local Ethereum node that forks the mainnet, use the following command:
+   ```bash
+   anvil --fork-url https://mainnet.infura.io/v3/<your-infura-project-id>
+   ```
+
+2. **Fetch Price Data**:
+   To validate that you are receiving Chainlink data, run the following script:
+   ```bash
+   forge script script/FetchPrice.s.sol --fork-url http://localhost:8545 --broadcast
+   ```
+
+
+3. **Run Tests**:
+   Execute your tests against the local fork:
+   ```bash
+   forge test --fork-url http://127.0.0.1:8545 --match-path test/UniswapV3.t.sol -vv
+   ```
+
+
+## Additional Commands
+
+- **Build Contracts**:
+   To compile your contracts, use:
+   ```bash
+   forge build
+   ```
+
+- **Run Tests Verbosely**:
+   For detailed test output, run:
+   ```bash
+   forge test -vv
+   ```
+
+- **View Remappings**:
+   To check your remappings, use:
+   ```bash
+   forge remappings
+   ```
+
+## Conclusion
+
+This setup provides a robust environment for developing and testing smart contracts with Foundry, utilizing Chainlink oracles and Uniswap V3. Follow the steps above to ensure a smooth installation and testing process.
