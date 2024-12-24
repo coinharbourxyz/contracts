@@ -151,20 +151,20 @@ contract VaultToken is ERC20, Ownable {
 
             // Perform the swap using UniswapV3
             if (tokenIn != tokenOut) {
-                amountOut_raw =
-                    uniswapV3.swapExactInputSingleHop(
-                        tokenIn,
-                        tokenOut,
-                        3000, // TODO: Later try lesser pool of 500
-                        amountIn
-                    )
+                amountOut = uniswapV3.swapExactInputSingleHop(
+                    tokenIn,
+                    tokenOut,
+                    3000, // TODO: Later try lesser pool of 500
+                    amountIn
+                );
             }
             // tokenBalances[tokenOut] += amountOut;
             // totalMintedValue += ((amountOut * tokenPrice) / 1e18);
             uint8 tokenDecimals = IERC20Metadata(tokenOut).decimals();
 
             // Now compute the USD value in 1e18 scale [price is in 1e18 (from getLatestPrice)]
-            uint256 tokenValueInUsd = (amountOut * tokenPrice) / (10 ** tokenDecimals);
+            uint256 tokenValueInUsd = (amountOut * tokenPrice) /
+                (10 ** tokenDecimals);
             totalMintedValue += tokenValueInUsd;
         }
 
@@ -251,4 +251,78 @@ contract VaultToken is ERC20, Ownable {
     //     (bool success, ) = msg.sender.call{value: totalETHReceived}("");
     //     require(success, "ETH transfer failed");
     // }
+
+    function withdraw(uint256 ethAmount) external {
+        require(ethAmount > 0, "Invalid amount");
+
+        // Step 1: Figure out the vault's total USD value
+        uint256 vaultTokenValue = calculateVaultTokenValue(); // total vault USD in 1e18
+        require(vaultTokenValue > 0, "Vault is empty");
+
+        // Step 2: Convert ethAmount to USD using Chainlink feed
+        address ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
+        uint256 ethPrice = getLatestPrice(AggregatorV3Interface(ethUsdFeed)); // 1e18
+        uint256 usdToWithdraw = (ethAmount * ethPrice) / 1e18;
+        uint256 totalSupplyVault = totalSupply();
+
+        // Step 3: Calculate tokens to burn
+        // tokenToBurn / totalSupplyVault = fraction / vaultTokenValue
+        // tokenToBurn = fraction (amt in USD) * totalSupplyVault / vaultTokenValue
+
+        uint256 tokensToBurn = (usdToWithdraw * totalSupplyVault) /
+            vaultTokenValue;
+
+        // The user must have enough shares
+        require(tokensToBurn <= balanceOf(msg.sender), "Insufficient shares");
+
+        _burn(msg.sender, tokensToBurn);
+
+        // Step 4: Redeem that same fraction of each token in the vault
+        UniswapV3 uniswapV3 = new UniswapV3();
+        address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+        // Track WETH (in base units)
+        uint256 totalWETHReceived = 0;
+
+        // Iterate over each token in the vault
+        // and redeem the user's share of each token (total supply changed after burn above, so use older totalSupplyVault)
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address tokenIn = tokens[i].tokenAddress;
+            uint256 allocationWeight = tokens[i].weight;
+
+            // Calculate the user's share of the token
+            uint256 userTokenShare = (allocationWeight *
+                tokenBalances[tokenIn] *
+                tokensToBurn) / (totalSupplyVault * 100); // assumption allocationWeight is in percentage
+
+            require(
+                tokenBalances[tokenIn] >= userTokenShare,
+                "Vault has insufficient token balance"
+            );
+
+            tokenBalances[tokenIn] -= userTokenShare;
+
+            // Convert the token to WETH
+            uint256 wethReceived = 0;
+            if (tokenIn != weth) {
+                wethReceived = uniswapV3.swapExactInputSingleHop(
+                    tokenIn,
+                    weth,
+                    3000,
+                    userTokenShare
+                );
+            } else {
+                wethReceived = userTokenShare;
+            }
+
+            totalWETHReceived += wethReceived;
+        }
+
+        // Step 6: Unwrap WETH -> ETH
+        uniswapV3.unwrapETH(totalWETHReceived);
+
+        // Step 7: Transfer the ETH to the user
+        (bool success, ) = msg.sender.call{value: totalWETHReceived}("");
+        require(success, "ETH transfer failed");
+    }
 }
