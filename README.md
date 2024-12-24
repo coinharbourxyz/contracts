@@ -33,9 +33,9 @@ This project utilizes Foundry for smart contract development and testing, with i
 4. **Install Dependencies**:
    Install the necessary libraries for Uniswap and Chainlink:
    ```bash
-   forge install uniswap/v3-core
-   forge install uniswap/v3-periphery
-   forge install OpenZeppelin/openzeppelin-contracts
+   forge install uniswap/v3-core --no-commit
+   forge install uniswap/v3-periphery --no-commit
+   forge install OpenZeppelin/openzeppelin-contracts --no-commit
    forge install smartcontractkit/chainlink-brownie-contracts --no-commit
    ```
 
