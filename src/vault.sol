@@ -78,7 +78,7 @@ contract VaultToken is ERC20, Ownable {
         } else if (decimals > 18) {
             return (uint256(price) / 10 ** (decimals - 18));
         }
-        return (uint256(price));
+        return (uint256(price)); // scaled to 1e18 decimal places
     }
 
     function calculateVaultTokenValue() public view returns (uint256) {
@@ -151,17 +151,21 @@ contract VaultToken is ERC20, Ownable {
 
             // Perform the swap using UniswapV3
             if (tokenIn != tokenOut) {
-                amountOut =
+                amountOut_raw =
                     uniswapV3.swapExactInputSingleHop(
                         tokenIn,
                         tokenOut,
                         3000, // TODO: Later try lesser pool of 500
                         amountIn
-                    ) *
-                    1e10;
+                    )
             }
-            tokenBalances[tokenOut] += amountOut;
-            totalMintedValue += ((amountOut * tokenPrice) / 1e18);
+            // tokenBalances[tokenOut] += amountOut;
+            // totalMintedValue += ((amountOut * tokenPrice) / 1e18);
+            uint8 tokenDecimals = IERC20Metadata(tokenOut).decimals();
+
+            // Now compute the USD value in 1e18 scale [price is in 1e18 (from getLatestPrice)]
+            uint256 tokenValueInUsd = (amountOut * tokenPrice) / (10 ** tokenDecimals);
+            totalMintedValue += tokenValueInUsd;
         }
 
         // Issue fund tokens proportional to the deposited value
@@ -170,81 +174,81 @@ contract VaultToken is ERC20, Ownable {
         _mint(msg.sender, (totalMintedValue * 1e18) / vaultTokenValue);
     }
 
-    function withdraw(uint256 amount) external {
-        // Amount is in ether
-        require(amount > 0, "Invalid amount");
+    // function withdraw(uint256 amount) external {
+    //     // Amount is in ether
+    //     require(amount > 0, "Invalid amount");
 
-        // Calculate the current vault token value
-        uint256 vaultTokenValue = calculateVaultTokenValue();
-        require(vaultTokenValue > 0, "Vault value must be greater than zero");
+    //     // Calculate the current vault token value
+    //     uint256 vaultTokenValue = calculateVaultTokenValue();
+    //     require(vaultTokenValue > 0, "Vault value must be greater than zero");
 
-        address ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+    //     address ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
-        uint256 ethInUsd = getLatestPrice(AggregatorV3Interface(ethUsdFeed));
+    //     uint256 ethInUsd = getLatestPrice(AggregatorV3Interface(ethUsdFeed));
 
-        uint256 usdToWithdraw = (amount * ethInUsd) / 1e18;
-        // console.log("usdToWithdraw", usdToWithdraw);
+    //     uint256 usdToWithdraw = (amount * ethInUsd) / 1e18;
+    //     // console.log("usdToWithdraw", usdToWithdraw);
 
-        // Calculate tokens to burn
-        uint256 tokensToBurn = (usdToWithdraw * 1e18) / vaultTokenValue; // Adjust for precision
+    //     // Calculate tokens to burn
+    //     uint256 tokensToBurn = (usdToWithdraw * 1e18) / vaultTokenValue; // Adjust for precision
 
-        // uint256 vaultTokenBalance = balanceOf(msg.sender);
-        // console.log("vaultTokenBalance", vaultTokenBalance);
+    //     // uint256 vaultTokenBalance = balanceOf(msg.sender);
+    //     // console.log("vaultTokenBalance", vaultTokenBalance);
 
-        // Burn the vault tokens from the user
-        _burn(msg.sender, tokensToBurn);
-        console.log("burn success");
+    //     // Burn the vault tokens from the user
+    //     _burn(msg.sender, tokensToBurn);
+    //     console.log("burn success");
 
-        UniswapV3 uniswapV3 = new UniswapV3();
-        address weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-        address tokenOut = weth;
+    //     UniswapV3 uniswapV3 = new UniswapV3();
+    //     address weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    //     address tokenOut = weth;
 
-        uint256 totalETHReceived = 0;
+    //     uint256 totalETHReceived = 0;
 
-        // Swap each token proportionally back to ETH
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address tokenIn = tokens[i].tokenAddress;
-            uint256 allocationWeight = tokens[i].weight; // Token allocation weight
+    //     // Swap each token proportionally back to ETH
+    //     for (uint256 i = 0; i < tokens.length; i++) {
+    //         address tokenIn = tokens[i].tokenAddress;
+    //         uint256 allocationWeight = tokens[i].weight; // Token allocation weight
 
-            uint256 tokenAmountToWithdraw =
-                (usdToWithdraw * allocationWeight) / 100;
+    //         uint256 tokenAmountToWithdraw = (usdToWithdraw * allocationWeight) /
+    //             100;
 
-            uint256 ethToWithdraw = (tokenAmountToWithdraw * 1e18) / ethInUsd;
+    //         uint256 ethToWithdraw = (tokenAmountToWithdraw * 1e18) / ethInUsd;
 
-            console.log("asset address", tokenIn);
-            console.log("tokenAmountToWithdraw", tokenAmountToWithdraw);
-            console.log("ethToWithdraw", ethToWithdraw);
-            console.log("tokenBalances[tokenIn]", tokenBalances[tokenIn]);
-            // Ensure the vault has enough balance for the withdrawal
-            require(
-                tokenBalances[tokenIn] >= ethToWithdraw,
-                "Insufficient token balance in vault"
-            );
+    //         console.log("asset address", tokenIn);
+    //         console.log("tokenAmountToWithdraw", tokenAmountToWithdraw);
+    //         console.log("ethToWithdraw", ethToWithdraw);
+    //         console.log("tokenBalances[tokenIn]", tokenBalances[tokenIn]);
+    //         // Ensure the vault has enough balance for the withdrawal
+    //         require(
+    //             tokenBalances[tokenIn] >= ethToWithdraw,
+    //             "Insufficient token balance in vault"
+    //         );
 
-            // Update the vault's token balance
-            tokenBalances[tokenIn] -= tokenAmountToWithdraw;
-            uint256 ethReceived = ethToWithdraw;
+    //         // Update the vault's token balance
+    //         tokenBalances[tokenIn] -= tokenAmountToWithdraw;
+    //         uint256 ethReceived = ethToWithdraw;
 
-            if (tokenIn != tokenOut) {
-                // Perform the swap to ETH using UniswapV3
-                ethReceived = uniswapV3.swapExactInputSingleHop(
-                    tokenIn,
-                    tokenOut,
-                    3000, // Pool fee
-                    ethToWithdraw
-                );
-            }
-            console.log("ethReceived", ethReceived);
+    //         if (tokenIn != tokenOut) {
+    //             // Perform the swap to ETH using UniswapV3
+    //             ethReceived = uniswapV3.swapExactInputSingleHop(
+    //                 tokenIn,
+    //                 tokenOut,
+    //                 3000, // Pool fee
+    //                 ethToWithdraw
+    //             );
+    //         }
+    //         console.log("ethReceived", ethReceived);
 
-            // Accumulate the ETH received
-            totalETHReceived += ethReceived;
-        }
+    //         // Accumulate the ETH received
+    //         totalETHReceived += ethReceived;
+    //     }
 
-        // Unwrap WETH to ETH
-        // uniswapV3.unwrapETH(totalETHReceived);
+    //     // Unwrap WETH to ETH
+    //     // uniswapV3.unwrapETH(totalETHReceived);
 
-        // Transfer the total ETH received to the user
-        (bool success, ) = msg.sender.call{value: totalETHReceived}("");
-        require(success, "ETH transfer failed");
-    }
+    //     // Transfer the total ETH received to the user
+    //     (bool success, ) = msg.sender.call{value: totalETHReceived}("");
+    //     require(success, "ETH transfer failed");
+    // }
 }
