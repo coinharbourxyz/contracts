@@ -82,7 +82,7 @@ contract UniswapV3 is ReentrancyGuard {
         // );
 
         // Deduct the user's WETH balance first
-        // userWETHBalance[msg.sender] -= amountIn;
+        userWETHBalance[msg.sender] -= amountIn;
 
         // IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
         // TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
