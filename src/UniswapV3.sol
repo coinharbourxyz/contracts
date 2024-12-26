@@ -82,6 +82,10 @@ contract UniswapV3 is ReentrancyGuard {
         // );
 
         // Deduct the user's WETH balance first
+        require(
+            userWETHBalance[msg.sender] > amountIn,
+            "Insufficient weth balance"
+        );
         userWETHBalance[msg.sender] -= amountIn;
 
         // IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
