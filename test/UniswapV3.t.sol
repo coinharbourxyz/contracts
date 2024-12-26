@@ -147,7 +147,7 @@ contract UniswapV3Test is Test {
 
     function testSwapFailsWithInsufficientWETHBalance() public {
         vm.prank(user);
-        vm.expectRevert("Insufficient WETH balance");
+        vm.expectRevert("Insufficient weth balance");
         uniswapV3.swapExactInputSingleHop(WETH9, DAI, FEE, 1 ether);
     }
 
