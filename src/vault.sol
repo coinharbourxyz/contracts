@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-import { console } from "forge-std/console.sol";
-import { UniswapV3 } from "./UniswapV3.sol";
+// import {console} from "forge-std/console.sol";
+import {UniswapV3} from "./UniswapV3.sol";
 
 contract VaultToken is ERC20, Ownable {
     struct TokenData {
@@ -19,7 +19,8 @@ contract VaultToken is ERC20, Ownable {
     uint256 private constant PRECISION = 1e18;
     mapping(address => uint256) public tokenBalances; // Tracks the balance of each token in the vault
     UniswapV3 public uniswapV3;
-    address public weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    address public weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
+    address public ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
 
     event AllocationsUpdated(address[] tokens, uint256[] weights);
     event Deposit(address indexed user, uint256 amount, uint256 sharesMinted);
@@ -89,6 +90,35 @@ contract VaultToken is ERC20, Ownable {
             return uint256(price) / 10 ** (decimals - 18);
         }
         return uint256(price); // scaled to 1e18 decimal places
+    }
+
+    function getErc20Balance(
+        address tokenAddress
+    ) public view returns (uint256) {
+        uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+        uint8 decimals = IERC20Metadata(tokenAddress).decimals();
+        if (decimals < 18) {
+            return balance * 10 ** (18 - decimals);
+        } else if (decimals > 18) {
+            return balance / 10 ** (decimals - 18);
+        }
+        return balance;
+    }
+
+    function getErc20Allowance(
+        address tokenAddress
+    ) public view returns (uint256) {
+        uint256 allowance = IERC20(tokenAddress).allowance(
+            address(this),
+            address(uniswapV3)
+        );
+        uint8 decimals = IERC20Metadata(tokenAddress).decimals();
+        if (decimals < 18) {
+            return allowance * 10 ** (18 - decimals);
+        } else if (decimals > 18) {
+            return allowance / 10 ** (decimals - 18);
+        }
+        return allowance;
     }
 
     function calculateMarketCap() public view returns (uint256) {
@@ -217,6 +247,13 @@ contract VaultToken is ERC20, Ownable {
                     3000, // TODO: Later try lesser pool of 500
                     amountIn
                 );
+                // get decimals of tokenOut
+                uint8 tokenOutDecimals = IERC20Metadata(tokenOut).decimals();
+                if (tokenOutDecimals < 18) {
+                    amountOut = amountOut * 10 ** (18 - tokenOutDecimals);
+                } else if (tokenOutDecimals > 18) {
+                    amountOut = amountOut / 10 ** (tokenOutDecimals - 18);
+                }
             }
 
             // Update the vault's token balance
@@ -250,80 +287,66 @@ contract VaultToken is ERC20, Ownable {
     }
 
     function withdraw(uint256 ethAmount) external {
-        console.log("---------------------------- withdraw ----------------------------");
         require(ethAmount > 0, "Invalid amount");
-        console.log("ethAmount", ethAmount);
 
         // Step 1: Calculate the vault's total USD value
-        uint256 vaultTokenValue = calculateMarketCap(); // total vault USD in 1e18
-        require(vaultTokenValue > 0, "Vault is empty");
-        console.log("vaultTokenValue", vaultTokenValue);
+        uint256 marketCap = calculateMarketCap();
+        require(marketCap > 0, "Vault is empty");
 
         // Step 2: Convert ethAmount to USD using Chainlink feed
-        address ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
         uint256 ethPrice = getLatestPrice(AggregatorV3Interface(ethUsdFeed)); // 1e18
         uint256 usdToWithdraw = (ethAmount * ethPrice) / 1e18;
-        console.log("usdToWithdraw", usdToWithdraw);
-        uint256 totalSupplyVault = totalSupply();
-        console.log("totalSupplyVault", totalSupplyVault);
+        uint256 tokensAlreadyIssued = totalSupply();
 
         // Step 3: Calculate shares to burn
-        uint256 sharesToBurn = (usdToWithdraw * totalSupplyVault) /
-            vaultTokenValue;
+        uint256 sharesToBurn = (usdToWithdraw * tokensAlreadyIssued) /
+            marketCap;
         require(sharesToBurn > 0, "Shares to burn must be greater than zero");
-        console.log("sharesToBurn", sharesToBurn);
+
         // The user must have enough shares
         require(sharesToBurn <= balanceOf(msg.sender), "Insufficient shares");
-        console.log("balanceOf(msg.sender)", balanceOf(msg.sender));
+
         // Burn the vault tokens from the user
         _burn(msg.sender, sharesToBurn);
-        console.log("balanceOf(msg.sender) after burn", balanceOf(msg.sender));
 
         // Track WETH received
         uint256 totalWETHReceived = 0;
 
-        // Iterate over each token in the vault
-        // and redeem the user's share of each token (total supply changed after burn above, so use older totalSupplyVault)
+        // Iterate over each token in the vault and redeem the user's share of each token (total supply changed after burn above, so use older tokensAlreadyIssued)
         for (uint256 i = 0; i < tokens.length; i++) {
             address tokenIn = tokens[i].tokenAddress;
             uint256 allocationWeight = tokens[i].weight;
 
-            // Calculate the user's share of the token
-            uint256 userTokenShare = (tokenBalances[tokenIn] * sharesToBurn) /
-                totalSupplyVault;
+            uint256 tokenPrice = getLatestPrice(tokens[i].priceFeed);
+            uint256 userTokenShare = (usdToWithdraw * allocationWeight * 1e18) /
+                (tokenPrice * 100);
+
             require(
                 tokenBalances[tokenIn] >= userTokenShare,
                 "Vault has insufficient token balance"
             );
-            console.log("tokenBalances[tokenIn]", tokenBalances[tokenIn]);
-            console.log("userTokenShare", userTokenShare);
+
             // Update the vault's token balance
             tokenBalances[tokenIn] -= userTokenShare;
             require(tokenBalances[tokenIn] >= 0, "Negative token balance");
 
-            console.log("tokenBalances[tokenIn] after", tokenBalances[tokenIn]);
-
-            console.log("token.length", tokens.length);
-
             // Convert the token to WETH
-            uint256 wethReceived = 0;
+            uint256 wethReceived = userTokenShare;
             if (tokenIn != weth) {
-                console.log("tokenIn != weth");
                 // Approve UniswapV3 to spend tokenIn
                 IERC20(tokenIn).approve(address(uniswapV3), userTokenShare);
-                console.log("IERC20(tokenIn).approve(address(uniswapV3), userTokenShare)");
 
-                // check allowance
-                console.log("IERC20(tokenIn).allowance(address(this), address(uniswapV3))", IERC20(tokenIn).allowance(address(this), address(uniswapV3)));
+                uint256 balanceOfTokenIn = getErc20Balance(tokenIn);
+                uint256 allowanceOfTokenIn = getErc20Allowance(tokenIn);
 
-                // check balance of tokenIn
-                console.log("IERC20(tokenIn).balanceOf(address(this))", IERC20(tokenIn).balanceOf(address(this)));
-
-                // p4in5 user token share
-                console.log("userTokenShare", userTokenShare);
-
-                require(IERC20(tokenIn).balanceOf(address(this)) >= userTokenShare, "Insufficient token balance");
-                require(IERC20(tokenIn).allowance(address(this), address(uniswapV3)) >= userTokenShare, "Insufficient token allowance");
+                require(
+                    balanceOfTokenIn >= userTokenShare,
+                    "Insufficient token balance"
+                );
+                require(
+                    allowanceOfTokenIn >= userTokenShare,
+                    "Insufficient token allowance"
+                );
 
                 // Perform the swap to WETH using UniswapV3
                 wethReceived = uniswapV3.swapExactInputSingleHop(
@@ -332,24 +355,17 @@ contract VaultToken is ERC20, Ownable {
                     3000, // Pool fee
                     userTokenShare
                 );
-                console.log("wethReceived", wethReceived);
-            } 
-            else {
-                wethReceived = userTokenShare;
-                console.log("wethReceived else", wethReceived);
             }
 
             totalWETHReceived += wethReceived;
-            console.log("totalWETHReceived", totalWETHReceived);
         }
 
         // Unwrap WETH to ETH
         uniswapV3.unwrapETH(totalWETHReceived);
-        console.log("totalWETHReceived after unwrap", totalWETHReceived);
+
         // Transfer the ETH to the user
         (bool success, ) = msg.sender.call{value: totalWETHReceived}("");
         require(success, "ETH transfer failed");
-        console.log("totalWETHReceived after transfer", totalWETHReceived);
         emit Withdraw(msg.sender, ethAmount, sharesToBurn);
     }
 
