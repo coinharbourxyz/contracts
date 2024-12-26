@@ -384,4 +384,7 @@ contract VaultToken is ERC20, Ownable {
 
     // Fallback function to accept ETH
     receive() external payable {}
+
+    // Fallback function to accept ETH (with data)
+    fallback() external payable {}
 }
