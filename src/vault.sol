@@ -17,7 +17,7 @@ contract VaultToken is ERC20, Ownable {
 
     TokenData[] public tokens;
     uint256 private constant PRECISION = 1e18;
-    mapping(address => uint256) public tokenBalances; // Tracks the balance of each token in the vault
+    mapping(address => uint256) public tokenBalances; // Tracks balance of each token in 1e18 scale
     UniswapV3 public uniswapV3;
     address public weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
     address public ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
@@ -77,6 +77,18 @@ contract VaultToken is ERC20, Ownable {
         );
     }
 
+    function convertInputTo18Decimals(
+        uint256 amount,
+        uint8 decimals
+    ) public pure returns (uint256) {
+        if (decimals < 18) {
+            return amount * 10 ** (18 - decimals);
+        } else if (decimals > 18) {
+            return amount / 10 ** (decimals - 18);
+        }
+        return amount;
+    }
+
     function getLatestPrice(
         AggregatorV3Interface priceFeed
     ) public view returns (uint256) {
@@ -84,12 +96,11 @@ contract VaultToken is ERC20, Ownable {
         uint8 decimals = priceFeed.decimals();
         require(price > 0, "Invalid price");
 
-        if (decimals < 18) {
-            return uint256(price) * 10 ** (18 - decimals);
-        } else if (decimals > 18) {
-            return uint256(price) / 10 ** (decimals - 18);
-        }
-        return uint256(price); // scaled to 1e18 decimal places
+        uint256 priceIn18Decimals = convertInputTo18Decimals(
+            uint256(price),
+            decimals
+        );
+        return priceIn18Decimals;
     }
 
     function getErc20Balance(
@@ -97,12 +108,7 @@ contract VaultToken is ERC20, Ownable {
     ) public view returns (uint256) {
         uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
         uint8 decimals = IERC20Metadata(tokenAddress).decimals();
-        if (decimals < 18) {
-            return balance * 10 ** (18 - decimals);
-        } else if (decimals > 18) {
-            return balance / 10 ** (decimals - 18);
-        }
-        return balance;
+        return convertInputTo18Decimals(balance, decimals);
     }
 
     function getErc20Allowance(
@@ -113,12 +119,7 @@ contract VaultToken is ERC20, Ownable {
             address(uniswapV3)
         );
         uint8 decimals = IERC20Metadata(tokenAddress).decimals();
-        if (decimals < 18) {
-            return allowance * 10 ** (18 - decimals);
-        } else if (decimals > 18) {
-            return allowance / 10 ** (decimals - 18);
-        }
-        return allowance;
+        return convertInputTo18Decimals(allowance, decimals);
     }
 
     function calculateMarketCap() public view returns (uint256) {
@@ -129,7 +130,11 @@ contract VaultToken is ERC20, Ownable {
             if (balance > 0) {
                 uint256 price = getLatestPrice(tokens[i].priceFeed);
                 uint8 decimals = IERC20Metadata(tokenAddr).decimals();
-                uint256 value = (balance * price) / (10 ** decimals);
+                uint256 priceIn18Decimals = convertInputTo18Decimals(
+                    price,
+                    decimals
+                );
+                uint256 value = (balance * priceIn18Decimals) / 1e18;
                 totalValue += value;
             }
         }
@@ -210,6 +215,11 @@ contract VaultToken is ERC20, Ownable {
                     3000, // Pool fee
                     amountToSwap
                 );
+                uint8 tokenOutDecimals = IERC20Metadata(tokenOut).decimals();
+                amountReceived = convertInputTo18Decimals(
+                    amountReceived,
+                    tokenOutDecimals
+                );
 
                 // Update the vault's token balance
                 tokenBalances[tokenOut] += amountReceived;
@@ -249,11 +259,10 @@ contract VaultToken is ERC20, Ownable {
                 );
                 // get decimals of tokenOut
                 uint8 tokenOutDecimals = IERC20Metadata(tokenOut).decimals();
-                if (tokenOutDecimals < 18) {
-                    amountOut = amountOut * 10 ** (18 - tokenOutDecimals);
-                } else if (tokenOutDecimals > 18) {
-                    amountOut = amountOut / 10 ** (tokenOutDecimals - 18);
-                }
+                amountOut = convertInputTo18Decimals(
+                    amountOut,
+                    tokenOutDecimals
+                );
             }
 
             // Update the vault's token balance
@@ -261,8 +270,12 @@ contract VaultToken is ERC20, Ownable {
 
             // Compute the USD value in 1e18 scale
             uint8 tokenDecimals = IERC20Metadata(tokenOut).decimals();
-            uint256 tokenValueInUsd = (amountOut * tokenPrice) /
-                (10 ** tokenDecimals);
+            uint256 tokenPriceIn18Decimals = convertInputTo18Decimals(
+                tokenPrice,
+                tokenDecimals
+            );
+            uint256 tokenValueInUsd = (amountOut * tokenPriceIn18Decimals) /
+                1e18;
             totalMintedValue += tokenValueInUsd;
         }
 
