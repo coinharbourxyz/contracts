@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "forge-std/console.sol"; // Import Forge console
 import "forge-std/Test.sol";
 import "../src/vault.sol";
 import "@chainlink/contracts/v0.8/shared/interfaces/AggregatorV3Interface.sol";
@@ -17,9 +18,14 @@ contract VaultTokenTest is Test {
     // Mainnet addresses for price feeds
     address constant ETH_USD_FEED = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address constant BTC_USD_FEED = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
+    address constant DAI_USD_FEED = 0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9;
 
-    address constant UNISWAP_V3_ROUTER =
-        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    // Mainnet addresses for price feeds
+    address constant ETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant BTC_ADDRESS = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address constant DAI_ADDRESS = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
+    address constant UNISWAP_V3_ROUTER = address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     
     UniswapV3 uniswapV3 = new UniswapV3();
 
@@ -29,10 +35,11 @@ contract VaultTokenTest is Test {
     event AllocationsUpdated(address[] tokens, uint256[] weights);
 
     function setUp() public {
+        console.log("SetUp start");
         // Mock data for tokens
         address[] memory tokenAddresses = new address[](2);
-        tokenAddresses[0] = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
-        tokenAddresses[1] = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599); // WBTC
+        tokenAddresses[0] = ETH_ADDRESS; // WETH
+        tokenAddresses[1] = BTC_ADDRESS; // WBTC
         
         address[] memory priceFeeds = new address[](2);
         priceFeeds[0] = ETH_USD_FEED;
@@ -50,6 +57,7 @@ contract VaultTokenTest is Test {
             priceFeeds,
             weights
         );
+        console.log("SetUp end");
     }
 
     function testSetUp() public {
@@ -113,123 +121,174 @@ contract VaultTokenTest is Test {
         );
     }
 
-    // function testGetTokenValue() public {
-    //     // Get prices from Chainlink feeds
-    //     uint256 ethPrice = vault.getLatestPrice(
-    //         AggregatorV3Interface(ETH_USD_FEED)
-    //     );
-    //     emit log_named_uint("ETH/USD Price", ethPrice);
-
-    //     uint256 btcPrice = vault.getLatestPrice(
-    //         AggregatorV3Interface(BTC_USD_FEED)
-    //     );
-    //     emit log_named_uint("BTC/USD Price", btcPrice);
-
-    //     // Get token weights from the contract
-    //     (, , uint256 ethWeight) = vault.getTokenDistributionData(0);
-    //     (, , uint256 btcWeight) = vault.getTokenDistributionData(1);
-
-    //     // Calculate expected token value based on weights
-    //     uint256 expectedValue = ((ethPrice * ethWeight) / 100) +
-    //         ((btcPrice * btcWeight) / 100);
-
-    //     // Get the actual vault token value
-    //     uint256 actualValue = vault.calculateVaultTokenValue();
-
-    //     // Log values for debugging
-    //     emit log_named_uint("Expected Value", expectedValue);
-    //     emit log_named_uint("Actual Value", actualValue);
-
-    //     // Assert that the values match
-    //     assertEq(
-    //         actualValue,
-    //         expectedValue,
-    //         "Vault value calculation mismatch"
-    //     );
-
-    //     // Assert that weights are correct
-    //     assertEq(ethWeight, 50, "ETH weight should be 50%");
-    //     assertEq(btcWeight, 50, "BTC weight should be 50%");
-    // }
-
     function testDeposit() public {
-        uint256 depositAmount = 1e18; // Amount to deposit
-
-        // Log the user's Ether balance before the deposit
-        emit log_named_uint(
-            "User Ether balance before deposit",
-            user.balance
-        );
-
         // Start the prank as the user
         vm.startPrank(user);
+
+        uint256 depositAmount = 100*1e18; // Amount to deposit
 
         // Perform the deposit by sending ETH
         vault.deposit{value: depositAmount}(); // Send ETH to the deposit function
 
-        // Log the user's Ether balance after the deposit
-        emit log_named_uint(
-            "User Ether balance after deposit",
-            user.balance
-        );
-        emit log_named_uint("Vault balance of user", vault.balanceOf(user));
-        emit log_named_uint(
-            "Contract ETH balance",
-            address(vault).balance
-        );
-
         // Verify user received vault tokens
         uint256 finalUserBalance = vault.balanceOf(user);
         assertGt(finalUserBalance, 0, "User should receive vault tokens");
+        console.log("User's Vault Token balance", finalUserBalance/ 1e18);
 
-        address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-        address WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+        // Contract's balance
+        console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
+        
+        uint256 btcbalance = IERC20(BTC_ADDRESS).balanceOf(address(vault));
+        uint8 decimals = IERC20Metadata(BTC_ADDRESS).decimals();
+        uint256 btcin18  = vault.convertInputTo18Decimals(btcbalance, decimals);
+        console.log("Contract's WBTC balance", btcin18);
+        
+        // End the prank
+        vm.stopPrank();
+    }
 
-        // Log User's WETH balance
-        emit log_named_uint(
-            "User's WETH balance",
-            uniswapV3.userWETHBalance(user)
-        );
+    function testUpdateAssetsAndWeights() public {
+        // If ETH is being used to mint WETH
+        vault.deposit{value: 1000*1e18}();  // Deposit 1000 ETH to get WETH in your test
 
-        // Log User's WBTC balance
-        emit log_named_uint(
-            "User's WBTC balance",
-            IERC20(WBTC).balanceOf(user)
-        );
+        // Contract's balance
+        console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
 
-        // Log User's Vault Token balance
-        emit log_named_uint(
-            "User's Vault Token balance",
-            vault.balanceOf(user)
-        );
+        // New token addresses and weights
+        address[] memory newTokenAddresses = new address[](2);
+        newTokenAddresses[0] = BTC_ADDRESS; // BTC
+        newTokenAddresses[1] = DAI_ADDRESS; // DAI
 
-        // Contract's ETH balance
-        emit log_named_uint(
-            "Contract's ETH balance",
-            address(vault).balance
-        );
+        address[] memory newPriceFeeds = new address[](2);
+        newPriceFeeds[0] = BTC_USD_FEED; // BTC/USD feed
+        newPriceFeeds[1] = DAI_USD_FEED; // DAI/USD feed
 
-        // Contract's WETH balance
-        emit log_named_uint(
-            "Contract's WETH balance",
-            uniswapV3.getWETHBalance()
-        );
+        uint256[] memory newWeights = new uint256[](2);
+        newWeights[0] = 60;
+        newWeights[1] = 40;
 
-        // Contract's WBTC balance
-        emit log_named_uint(
-            "Contract's WBTC balance",
-            IERC20(WBTC).balanceOf(address(vault))
-        );
+        // Start the prank as the owner
+        vm.startPrank(owner);
 
-        vault.withdraw(0.9 * 1e18);
+        // Update the assets and weights
+        vault.updateAssetsAndWeights(newTokenAddresses, newPriceFeeds, newWeights);
+
+        // Verify the updates
+        (, , uint256 weight0) = vault.getTokenDistributionData(0);
+        (, , uint256 weight1) = vault.getTokenDistributionData(1);
+        assertEq(weight0, 60, "BTC should have 60% allocation");
+        assertEq(weight1, 40, "DAI should have 40% allocation");
+
+
+        // Contract's balance
+        console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        // End the prank
+        vm.stopPrank();
+    }
+
+    function testWithdraw() public {
+        uint256 depositAmount = 1e18; // Amount to deposit
+        uint256 withdrawAmount = 0.5e18; // Amount to withdraw
+
+        // Start the prank as the user
+        vm.startPrank(user);
+
+        // Log balances
+        console.log("User's WETH balance", IERC20(ETH_ADDRESS).balanceOf(user));
+        console.log("User's DAI balance", IERC20(DAI_ADDRESS).balanceOf(user));
+        console.log("User's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(user));
+        console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        console.log("User's fund tokens", vault.balanceOf(user));
+
+        // Perform the deposit by sending ETH
+        vault.deposit{value: depositAmount}();
+
+        // Log balances
+        console.log("User's WETH balance", IERC20(ETH_ADDRESS).balanceOf(user));
+        console.log("User's DAI balance", IERC20(DAI_ADDRESS).balanceOf(user));
+        console.log("User's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(user));
+        console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        console.log("User's fund tokens", vault.balanceOf(user));
+
+        // Perform the withdrawal
+        vault.withdraw(withdrawAmount);
+
+        // Log balances
+        console.log("User's WETH balance", IERC20(ETH_ADDRESS).balanceOf(user));
+        console.log("User's DAI balance", IERC20(DAI_ADDRESS).balanceOf(user));
+        console.log("User's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(user));
+        console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
+        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        console.log("User's fund tokens", vault.balanceOf(user));
+
+        // Verify user received ETH back
+        emit log_named_uint("User Ether balance after withdrawal", user.balance);
+        assertGt(user.balance, withdrawAmount, "User should receive ETH back");
 
         // End the prank
         vm.stopPrank();
     }
 
-    // function testWithdraw() public {
-    //     vm.startPrank(user);
+    function testOtherMetrics() public {
+        uint256 depositAmount = 1e18; // Amount to deposit
 
-    //     vm.stopPrank();
-    // }
+        // Start the prank as the user
+        vm.startPrank(user);
+
+        // Perform the deposit by sending ETH
+        vault.deposit{value: depositAmount}();
+        uint256 nav = vault.getNAV();
+        uint256 totalInvestedValue = vault.calculateMarketCap();
+        uint256 totalSupply = vault.totalSupply();
+        uint256 numberOfInvestors = vault.getNumberOfInvestors();
+        console.log("1. Current Vault:");
+        console.log("Total Invested Value: %s", totalInvestedValue);
+        console.log("NAV: %s", nav);
+        console.log("Total Supply: %s", totalSupply);
+        console.log("Number of Investors: %s", numberOfInvestors);
+
+        // Perform the deposit by sending ETH
+        vault.deposit{value: depositAmount}();
+        nav = vault.getNAV();
+        totalInvestedValue = vault.calculateMarketCap();
+        totalSupply = vault.totalSupply();
+        numberOfInvestors = vault.getNumberOfInvestors();
+        console.log("2. Current Vault:");
+        console.log("Total Invested Value: %s", totalInvestedValue);
+        console.log("NAV: %s", nav);
+        console.log("Total Supply: %s", totalSupply);
+        console.log("Number of Investors: %s", numberOfInvestors);
+
+        // Withdraw
+        vault.withdraw(depositAmount);
+        nav = vault.getNAV();
+        totalInvestedValue = vault.calculateMarketCap();
+        totalSupply = vault.totalSupply();
+        numberOfInvestors = vault.getNumberOfInvestors();
+        console.log("3. Current Vault:");
+        console.log("Total Invested Value: %s", totalInvestedValue);
+        console.log("NAV: %s", nav);
+        console.log("Total Supply: %s", totalSupply);
+        console.log("Number of Investors: %s", numberOfInvestors);
+
+        // End the prank
+        vm.stopPrank();
+    }
+
+    function testComplete() public{
+        testSetUp();
+        testDeposit();
+        testUpdateAssetsAndWeights();
+        testWithdraw();
+        testOtherMetrics();
+    }
 }

@@ -21,6 +21,7 @@ contract VaultToken is ERC20, Ownable {
     UniswapV3 public uniswapV3;
     address public weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
     address public ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
+    uint private numberOfInvestors  = 0;
 
     event AllocationsUpdated(address[] tokens, uint256[] weights);
     event Deposit(address indexed user, uint256 amount, uint256 sharesMinted);
@@ -47,6 +48,11 @@ contract VaultToken is ERC20, Ownable {
         uint256 totalWeight = 0;
         for (uint256 i = 0; i < weights.length; i++) {
             require(weights[i] > 0, "Weight must be positive");
+            totalWeight += weights[i];
+        }
+        require(totalWeight == 100, "Total weights must sum to 100");
+
+        for (uint256 i = 0; i < weights.length; i++) {
             tokens.push(
                 TokenData({
                     tokenAddress: tokenAddresses[i],
@@ -54,10 +60,7 @@ contract VaultToken is ERC20, Ownable {
                     weight: weights[i]
                 })
             );
-            totalWeight += weights[i];
-        }
-
-        require(totalWeight == 100, "Total weights must sum to 100");
+        }        
         uniswapV3 = new UniswapV3();
     }
 
@@ -141,6 +144,19 @@ contract VaultToken is ERC20, Ownable {
         return totalValue;
     }
 
+    function getNumberOfInvestors() public view returns (uint256) {
+        return numberOfInvestors;
+    }
+
+    function getNAV() public view returns (uint256) {
+        uint256 totalSupply = totalSupply();
+        if (totalSupply == 0) {
+            return 0;
+        }
+        uint256 marketCap = calculateMarketCap();
+        return (marketCap) / totalSupply;
+    }
+
     function updateAssetsAndWeights(
         address[] memory tokenAddresses,
         address[] memory priceFeeds,
@@ -178,6 +194,8 @@ contract VaultToken is ERC20, Ownable {
 
                 // Reset token balance after swap
                 tokenBalances[tokenAddr] = 0;
+                // Update WETH balance after swap
+                tokenBalances[weth] += balance;
             }
         }
 
@@ -268,14 +286,7 @@ contract VaultToken is ERC20, Ownable {
             // Update the vault's token balance
             tokenBalances[tokenOut] += amountOut;
 
-            // Compute the USD value in 1e18 scale
-            uint8 tokenDecimals = IERC20Metadata(tokenOut).decimals();
-            uint256 tokenPriceIn18Decimals = convertInputTo18Decimals(
-                tokenPrice,
-                tokenDecimals
-            );
-            uint256 tokenValueInUsd = (amountOut * tokenPriceIn18Decimals) /
-                1e18;
+            uint256 tokenValueInUsd = (amountOut * tokenPrice) / 1e18;
             totalMintedValue += tokenValueInUsd;
         }
 
@@ -294,6 +305,9 @@ contract VaultToken is ERC20, Ownable {
 
         require(sharesToMint > 0, "Shares to mint must be greater than zero");
 
+        if (balanceOf(msg.sender) == 0) {
+            numberOfInvestors += 1;
+        }
         // Mint vault tokens to the user
         _mint(msg.sender, sharesToMint);
         emit Deposit(msg.sender, amount, sharesToMint);
@@ -321,7 +335,9 @@ contract VaultToken is ERC20, Ownable {
 
         // Burn the vault tokens from the user
         _burn(msg.sender, sharesToBurn);
-
+        if (balanceOf(msg.sender) == 0) {
+            numberOfInvestors -= 1;
+        }
         // Track WETH received
         uint256 totalWETHReceived = 0;
 
