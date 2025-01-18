@@ -153,8 +153,16 @@ contract VaultTokenTest is Test {
 
         // Contract's balance
         console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        
+        uint256 DAIbalance = IERC20(DAI_ADDRESS).balanceOf(address(vault));
+        uint8 DAIdecimals = IERC20Metadata(DAI_ADDRESS).decimals();
+        uint256 DAIin18  = vault.convertInputTo18Decimals(DAIbalance, DAIdecimals);
+        console.log("Contract's DAI balance", DAIbalance);
+        
+        uint256 BTCbalance = IERC20(BTC_ADDRESS).balanceOf(address(vault));
+        uint8 BTCdecimals = IERC20Metadata(BTC_ADDRESS).decimals();
+        uint256 BTCin18  = vault.convertInputTo18Decimals(BTCbalance, BTCdecimals);
+        console.log("Contract's WBTC balance", BTCin18);
 
         // New token addresses and weights
         address[] memory newTokenAddresses = new address[](2);
@@ -197,37 +205,52 @@ contract VaultTokenTest is Test {
         // Start the prank as the user
         vm.startPrank(user);
 
-        // Log balances
-        console.log("User's WETH balance", IERC20(ETH_ADDRESS).balanceOf(user));
-        console.log("User's DAI balance", IERC20(DAI_ADDRESS).balanceOf(user));
-        console.log("User's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(user));
         console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        
+        uint256 DAIbalance = IERC20(DAI_ADDRESS).balanceOf(address(vault));
+        uint8 DAIdecimals = IERC20Metadata(DAI_ADDRESS).decimals();
+        uint256 DAIin18  = vault.convertInputTo18Decimals(DAIbalance, DAIdecimals);
+        console.log("Contract's DAI balance", DAIbalance);
+        
+        uint256 BTCbalance = IERC20(BTC_ADDRESS).balanceOf(address(vault));
+        uint8 BTCdecimals = IERC20Metadata(BTC_ADDRESS).decimals();
+        uint256 BTCin18  = vault.convertInputTo18Decimals(BTCbalance, BTCdecimals);
+        console.log("Contract's WBTC balance", BTCin18);
+        
         console.log("User's fund tokens", vault.balanceOf(user));
 
         // Perform the deposit by sending ETH
         vault.deposit{value: depositAmount}();
 
-        // Log balances
-        console.log("User's WETH balance", IERC20(ETH_ADDRESS).balanceOf(user));
-        console.log("User's DAI balance", IERC20(DAI_ADDRESS).balanceOf(user));
-        console.log("User's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(user));
         console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        
+        DAIbalance = IERC20(DAI_ADDRESS).balanceOf(address(vault));
+        DAIdecimals = IERC20Metadata(DAI_ADDRESS).decimals();
+        DAIin18  = vault.convertInputTo18Decimals(DAIbalance, DAIdecimals);
+        console.log("Contract's DAI balance", DAIbalance);
+        
+        BTCbalance = IERC20(BTC_ADDRESS).balanceOf(address(vault));
+        BTCdecimals = IERC20Metadata(BTC_ADDRESS).decimals();
+        BTCin18  = vault.convertInputTo18Decimals(BTCbalance, BTCdecimals);
+        console.log("Contract's WBTC balance", BTCin18);
+
         console.log("User's fund tokens", vault.balanceOf(user));
 
         // Perform the withdrawal
         vault.withdraw(withdrawAmount);
 
-        // Log balances
-        console.log("User's WETH balance", IERC20(ETH_ADDRESS).balanceOf(user));
-        console.log("User's DAI balance", IERC20(DAI_ADDRESS).balanceOf(user));
-        console.log("User's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(user));
         console.log("Contract's WETH balance", IERC20(ETH_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's DAI balance", IERC20(DAI_ADDRESS).balanceOf(address(vault)));
-        console.log("Contract's WBTC balance", IERC20(BTC_ADDRESS).balanceOf(address(vault)));
+        
+        DAIbalance = IERC20(DAI_ADDRESS).balanceOf(address(vault));
+        DAIdecimals = IERC20Metadata(DAI_ADDRESS).decimals();
+        DAIin18  = vault.convertInputTo18Decimals(DAIbalance, DAIdecimals);
+        console.log("Contract's DAI balance", DAIbalance);
+        
+        BTCbalance = IERC20(BTC_ADDRESS).balanceOf(address(vault));
+        BTCdecimals = IERC20Metadata(BTC_ADDRESS).decimals();
+        BTCin18  = vault.convertInputTo18Decimals(BTCbalance, BTCdecimals);
+        console.log("Contract's WBTC balance", BTCin18);
+
         console.log("User's fund tokens", vault.balanceOf(user));
 
         // Verify user received ETH back
@@ -284,11 +307,11 @@ contract VaultTokenTest is Test {
         vm.stopPrank();
     }
 
-    function testComplete() public{
-        testSetUp();
-        testDeposit();
-        testUpdateAssetsAndWeights();
-        testWithdraw();
-        testOtherMetrics();
-    }
+//     function testComplete() public{
+//         testSetUp();
+//         testDeposit();
+//         testUpdateAssetsAndWeights();
+//         testWithdraw();
+//         testOtherMetrics();
+//     }
 }

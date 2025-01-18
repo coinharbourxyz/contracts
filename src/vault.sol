@@ -132,12 +132,7 @@ contract VaultToken is ERC20, Ownable {
             uint256 balance = tokenBalances[tokenAddr];
             if (balance > 0) {
                 uint256 price = getLatestPrice(tokens[i].priceFeed);
-                uint8 decimals = IERC20Metadata(tokenAddr).decimals();
-                uint256 priceIn18Decimals = convertInputTo18Decimals(
-                    price,
-                    decimals
-                );
-                uint256 value = (balance * priceIn18Decimals) / 1e18;
+                uint256 value = (balance * price) / 1e18;
                 totalValue += value;
             }
         }
@@ -180,7 +175,8 @@ contract VaultToken is ERC20, Ownable {
         for (uint256 i = 0; i < tokens.length; i++) {
             address tokenAddr = tokens[i].tokenAddress;
             uint256 balance = tokenBalances[tokenAddr];
-            if (balance > 0) {
+
+            if (tokenAddr != weth && balance > 0) {
                 // Approve UniswapV3 to spend tokenAddr
                 IERC20(tokenAddr).approve(address(uniswapV3), balance);
 
@@ -194,8 +190,6 @@ contract VaultToken is ERC20, Ownable {
 
                 // Reset token balance after swap
                 tokenBalances[tokenAddr] = 0;
-                // Update WETH balance after swap
-                tokenBalances[weth] += balance;
             }
         }
 
@@ -226,7 +220,7 @@ contract VaultToken is ERC20, Ownable {
             IERC20(weth).approve(address(uniswapV3), amountToSwap);
 
             // Perform the swap from WETH to the new token
-            if (amountToSwap > 0) {
+            if (tokenOut != weth && amountToSwap > 0) {
                 uint256 amountReceived = uniswapV3.swapExactInputSingleHop(
                     weth,
                     tokenOut,
@@ -250,6 +244,9 @@ contract VaultToken is ERC20, Ownable {
     function deposit() external payable {
         uint256 amount = msg.value;
         require(amount > 0, "Invalid amount");
+
+        // Calculate the total vault value before minting
+        uint256 vaultValueBefore = calculateMarketCap();
 
         address tokenIn = weth;
         uint256 totalMintedValue = 0;
@@ -289,9 +286,6 @@ contract VaultToken is ERC20, Ownable {
             uint256 tokenValueInUsd = (amountOut * tokenPrice) / 1e18;
             totalMintedValue += tokenValueInUsd;
         }
-
-        // Calculate the total vault value before minting
-        uint256 vaultValueBefore = calculateMarketCap();
 
         // Determine shares to mint
         uint256 sharesToMint;
@@ -355,10 +349,6 @@ contract VaultToken is ERC20, Ownable {
                 "Vault has insufficient token balance"
             );
 
-            // Update the vault's token balance
-            tokenBalances[tokenIn] -= userTokenShare;
-            require(tokenBalances[tokenIn] >= 0, "Negative token balance");
-
             // Convert the token to WETH
             uint256 wethReceived = userTokenShare;
             if (tokenIn != weth) {
@@ -368,14 +358,8 @@ contract VaultToken is ERC20, Ownable {
                 uint256 balanceOfTokenIn = getErc20Balance(tokenIn);
                 uint256 allowanceOfTokenIn = getErc20Allowance(tokenIn);
 
-                require(
-                    balanceOfTokenIn >= userTokenShare,
-                    "Insufficient token balance"
-                );
-                require(
-                    allowanceOfTokenIn >= userTokenShare,
-                    "Insufficient token allowance"
-                );
+                require(balanceOfTokenIn >= userTokenShare, "Insufficient token balance");
+                require(allowanceOfTokenIn >= userTokenShare, "Insufficient token allowance");
 
                 // Perform the swap to WETH using UniswapV3
                 wethReceived = uniswapV3.swapExactInputSingleHop(
@@ -385,6 +369,8 @@ contract VaultToken is ERC20, Ownable {
                     userTokenShare
                 );
             }
+            // Update the vault's token balance
+            tokenBalances[tokenIn] -= userTokenShare;
 
             totalWETHReceived += wethReceived;
         }
