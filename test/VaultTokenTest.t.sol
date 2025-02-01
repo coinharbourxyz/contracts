@@ -51,8 +51,6 @@ contract VaultTokenTest is Test {
 
         vault = new VaultToken(
             "Vault Token",
-            "VT",
-            owner,
             tokenAddresses,
             priceFeeds,
             weights

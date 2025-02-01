@@ -9,36 +9,25 @@ import "@chainlink/contracts/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {UniswapV3} from "./UniswapV3.sol";
 
 contract VaultToken is ERC20, Ownable {
-    struct TokenData {
+    struct TokenWeights {
         address tokenAddress;
         AggregatorV3Interface priceFeed;
-        uint256 weight; // Weight in percentage (sum should be 100)
+        uint256 weight;
     }
 
-    TokenData[] public tokens;
-    uint256 private constant PRECISION = 1e18;
+    TokenWeights[] public tokens;
     mapping(address => uint256) public tokenBalances; // Tracks balance of each token in 1e18 scale
-    UniswapV3 public uniswapV3;
-    address public weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
-    address public ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
+    UniswapV3 uniswapV3 = new UniswapV3();
+    address weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
+    address ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
     uint private numberOfInvestors  = 0;
-
-    event AllocationsUpdated(address[] tokens, uint256[] weights);
-    event Deposit(address indexed user, uint256 amount, uint256 sharesMinted);
-    event Withdraw(
-        address indexed user,
-        uint256 ethAmount,
-        uint256 sharesBurned
-    );
 
     constructor(
         string memory name,
-        string memory symbol,
-        address initialOwner,
         address[] memory tokenAddresses,
         address[] memory priceFeeds,
         uint256[] memory weights
-    ) ERC20(name, symbol) Ownable(initialOwner) {
+    ) ERC20(name, name) Ownable(msg.sender) {
         require(
             tokenAddresses.length == priceFeeds.length &&
                 priceFeeds.length == weights.length,
@@ -54,14 +43,13 @@ contract VaultToken is ERC20, Ownable {
 
         for (uint256 i = 0; i < weights.length; i++) {
             tokens.push(
-                TokenData({
+                TokenWeights({
                     tokenAddress: tokenAddresses[i],
                     priceFeed: AggregatorV3Interface(priceFeeds[i]),
                     weight: weights[i]
                 })
             );
         }        
-        uniswapV3 = new UniswapV3();
     }
 
     function getTokenDistributionCount() public view returns (uint256) {
@@ -72,7 +60,7 @@ contract VaultToken is ERC20, Ownable {
         uint256 index
     ) public view returns (address, address, uint256) {
         require(index < tokens.length, "Index out of bounds");
-        TokenData memory tokenData = tokens[index];
+        TokenWeights memory tokenData = tokens[index];
         return (
             tokenData.tokenAddress,
             address(tokenData.priceFeed),
@@ -199,7 +187,7 @@ contract VaultToken is ERC20, Ownable {
         // Add the new tokens and their weights
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             tokens.push(
-                TokenData({
+                TokenWeights({
                     tokenAddress: tokenAddresses[i],
                     priceFeed: AggregatorV3Interface(priceFeeds[i]),
                     weight: weights[i]
@@ -238,7 +226,6 @@ contract VaultToken is ERC20, Ownable {
             }
         }
 
-        emit AllocationsUpdated(tokenAddresses, weights);
     }
 
     function deposit() external payable {
@@ -304,7 +291,6 @@ contract VaultToken is ERC20, Ownable {
         }
         // Mint vault tokens to the user
         _mint(msg.sender, sharesToMint);
-        emit Deposit(msg.sender, amount, sharesToMint);
     }
 
     function withdraw(uint256 ethAmount) external {
@@ -381,7 +367,6 @@ contract VaultToken is ERC20, Ownable {
         // Transfer the ETH to the user
         (bool success, ) = msg.sender.call{value: totalWETHReceived}("");
         require(success, "ETH transfer failed");
-        emit Withdraw(msg.sender, ethAmount, sharesToBurn);
     }
 
     // Fallback function to accept ETH
