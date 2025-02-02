@@ -7,11 +7,12 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 // import {console} from "forge-std/console.sol";
 import {UniswapV3} from "./UniswapV3.sol";
+import {ChainlinkProxy} from "../lib/ChainLinkProxy.sol";
 
 contract VaultToken is ERC20, Ownable {
     struct TokenWeights {
         address tokenAddress;
-        AggregatorV3Interface priceFeed;
+        uint32 priceFeedId;
         uint256 weight;
     }
 
@@ -19,18 +20,18 @@ contract VaultToken is ERC20, Ownable {
     mapping(address => uint256) public tokenBalances; // Tracks balance of each token in 1e18 scale
     UniswapV3 uniswapV3 = new UniswapV3();
     address weth = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
-    address ethUsdFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // Chainlink ETH/USD feed
-    uint private numberOfInvestors  = 0;
+    uint32 ethPriceId = 47; // Chainlink ETH/USD feed
+    uint private numberOfInvestors = 0;
 
     constructor(
         string memory name,
         address[] memory tokenAddresses,
-        address[] memory priceFeeds,
+        uint32[] memory priceFeedIds,
         uint256[] memory weights
     ) ERC20(name, name) Ownable(msg.sender) {
         require(
-            tokenAddresses.length == priceFeeds.length &&
-                priceFeeds.length == weights.length,
+            tokenAddresses.length == priceFeedIds.length &&
+                priceFeedIds.length == weights.length,
             "Arrays must be of equal length"
         );
 
@@ -45,11 +46,11 @@ contract VaultToken is ERC20, Ownable {
             tokens.push(
                 TokenWeights({
                     tokenAddress: tokenAddresses[i],
-                    priceFeed: AggregatorV3Interface(priceFeeds[i]),
+                    priceFeedId: priceFeedIds[i],
                     weight: weights[i]
                 })
             );
-        }        
+        }
     }
 
     function getTokenDistributionCount() public view returns (uint256) {
@@ -58,12 +59,12 @@ contract VaultToken is ERC20, Ownable {
 
     function getTokenDistributionData(
         uint256 index
-    ) public view returns (address, address, uint256) {
+    ) public view returns (address, uint256, uint256) {
         require(index < tokens.length, "Index out of bounds");
         TokenWeights memory tokenData = tokens[index];
         return (
             tokenData.tokenAddress,
-            address(tokenData.priceFeed),
+            tokenData.priceFeedId,
             tokenData.weight
         );
     }
@@ -80,18 +81,11 @@ contract VaultToken is ERC20, Ownable {
         return amount;
     }
 
-    function getLatestPrice(
-        AggregatorV3Interface priceFeed
-    ) public view returns (uint256) {
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        uint8 decimals = priceFeed.decimals();
+    function getLatestPrice(uint32 priceFeedId) public returns (int256) {
+        (, int256 price, , , ) = new ChainlinkProxy(18, priceFeedId)
+            .latestRoundData();
         require(price > 0, "Invalid price");
-
-        uint256 priceIn18Decimals = convertInputTo18Decimals(
-            uint256(price),
-            decimals
-        );
-        return priceIn18Decimals;
+        return price;
     }
 
     function getErc20Balance(
@@ -113,14 +107,14 @@ contract VaultToken is ERC20, Ownable {
         return convertInputTo18Decimals(allowance, decimals);
     }
 
-    function calculateMarketCap() public view returns (uint256) {
+    function calculateMarketCap() public returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i = 0; i < tokens.length; i++) {
             address tokenAddr = tokens[i].tokenAddress;
             uint256 balance = tokenBalances[tokenAddr];
             if (balance > 0) {
-                uint256 price = getLatestPrice(tokens[i].priceFeed);
-                uint256 value = (balance * price) / 1e18;
+                int256 price = getLatestPrice(tokens[i].priceFeedId);
+                uint256 value = (balance * uint256(price)) / 1e18;
                 totalValue += value;
             }
         }
@@ -131,7 +125,7 @@ contract VaultToken is ERC20, Ownable {
         return numberOfInvestors;
     }
 
-    function getNAV() public view returns (uint256) {
+    function getNAV() public returns (uint256) {
         uint256 totalSupply = totalSupply();
         if (totalSupply == 0) {
             return 0;
@@ -142,12 +136,12 @@ contract VaultToken is ERC20, Ownable {
 
     function updateAssetsAndWeights(
         address[] memory tokenAddresses,
-        address[] memory priceFeeds,
+        uint32[] memory priceFeedIds,
         uint256[] memory weights
     ) external onlyOwner {
         require(
-            tokenAddresses.length == priceFeeds.length &&
-                priceFeeds.length == weights.length,
+            tokenAddresses.length == priceFeedIds.length &&
+                priceFeedIds.length == weights.length,
             "Arrays must be of equal length"
         );
 
@@ -189,7 +183,7 @@ contract VaultToken is ERC20, Ownable {
             tokens.push(
                 TokenWeights({
                     tokenAddress: tokenAddresses[i],
-                    priceFeed: AggregatorV3Interface(priceFeeds[i]),
+                    priceFeedId: priceFeedIds[i],
                     weight: weights[i]
                 })
             );
@@ -225,7 +219,6 @@ contract VaultToken is ERC20, Ownable {
                 tokenBalances[tokenOut] += amountReceived;
             }
         }
-
     }
 
     function deposit() external payable {
@@ -245,7 +238,7 @@ contract VaultToken is ERC20, Ownable {
         for (uint256 i = 0; i < tokens.length; i++) {
             address tokenOut = tokens[i].tokenAddress;
             uint256 allocationWeight = tokens[i].weight;
-            uint256 tokenPrice = getLatestPrice(tokens[i].priceFeed);
+            int256 tokenPrice = getLatestPrice(tokens[i].priceFeedId);
             require(tokenPrice > 0, "Token price must be greater than zero");
 
             uint256 amountIn = (amount * allocationWeight) / 100;
@@ -270,7 +263,7 @@ contract VaultToken is ERC20, Ownable {
             // Update the vault's token balance
             tokenBalances[tokenOut] += amountOut;
 
-            uint256 tokenValueInUsd = (amountOut * tokenPrice) / 1e18;
+            uint256 tokenValueInUsd = (amountOut * uint256(tokenPrice)) / 1e18;
             totalMintedValue += tokenValueInUsd;
         }
 
@@ -301,8 +294,8 @@ contract VaultToken is ERC20, Ownable {
         require(marketCap > 0, "Vault is empty");
 
         // Step 2: Convert ethAmount to USD using Chainlink feed
-        uint256 ethPrice = getLatestPrice(AggregatorV3Interface(ethUsdFeed)); // 1e18
-        uint256 usdToWithdraw = (ethAmount * ethPrice) / 1e18;
+        int256 ethPrice = getLatestPrice(ethPriceId); // 1e18
+        uint256 usdToWithdraw = (ethAmount * uint256(ethPrice)) / 1e18;
         uint256 tokensAlreadyIssued = totalSupply();
 
         // Step 3: Calculate shares to burn
@@ -326,9 +319,9 @@ contract VaultToken is ERC20, Ownable {
             address tokenIn = tokens[i].tokenAddress;
             uint256 allocationWeight = tokens[i].weight;
 
-            uint256 tokenPrice = getLatestPrice(tokens[i].priceFeed);
+            int256 tokenPrice = getLatestPrice(tokens[i].priceFeedId);
             uint256 userTokenShare = (usdToWithdraw * allocationWeight * 1e18) /
-                (tokenPrice * 100);
+                (uint256(tokenPrice) * 100);
 
             require(
                 tokenBalances[tokenIn] >= userTokenShare,
@@ -344,8 +337,14 @@ contract VaultToken is ERC20, Ownable {
                 uint256 balanceOfTokenIn = getErc20Balance(tokenIn);
                 uint256 allowanceOfTokenIn = getErc20Allowance(tokenIn);
 
-                require(balanceOfTokenIn >= userTokenShare, "Insufficient token balance");
-                require(allowanceOfTokenIn >= userTokenShare, "Insufficient token allowance");
+                require(
+                    balanceOfTokenIn >= userTokenShare,
+                    "Insufficient token balance"
+                );
+                require(
+                    allowanceOfTokenIn >= userTokenShare,
+                    "Insufficient token allowance"
+                );
 
                 // Perform the swap to WETH using UniswapV3
                 wethReceived = uniswapV3.swapExactInputSingleHop(
