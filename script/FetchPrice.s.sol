@@ -25,7 +25,7 @@ contract FetchPrice is Script {
         ) = priceFeed.latestRoundData();
         // require(price > 0, "Invalid price");
 
-        console.log("BTC/USD Price:", uint256(price));
+        console.log("SOL/USD Price:", uint256(price));
         console.log("Timestamp:", updatedAt);
         console.log("Round ID:", roundId);
 
