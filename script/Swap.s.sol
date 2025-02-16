@@ -18,6 +18,10 @@ import {IV4Router} from "v4-periphery/src/interfaces/IV4Router.sol";
 
 import {Currency} from "v4-core/src/types/Currency.sol";
 
+interface IPermit2 {
+    function approve(address token, address spender, uint160 amount, uint48 expiration) external;
+}
+
 /// @notice Forge script for deploying v4 & hooks to **anvil**
 /// @dev This script only works on an anvil RPC because v4 exceeds bytecode limits
 contract SwapTest is Script {
@@ -27,6 +31,9 @@ contract SwapTest is Script {
 
     address payable universalRouter = payable(address(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af));
     UniversalRouter public immutable router = UniversalRouter(universalRouter);
+
+    address payable _permit2 = payable(address(0x000000000022D473030F116dDEE9F6B43aC78BA3));
+    IPermit2 public immutable permit2 = IPermit2(_permit2);
 
     function run() public {
         vm.startBroadcast();
@@ -38,6 +45,9 @@ contract SwapTest is Script {
     function testLifecycle() internal {
         this.swapExactInputSingle(
             address(0), address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), 3000, 10 ether, 0, true
+        );
+        this.swapExactInputSingle(
+            address(0), address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48), 3000, 13774909557, 0, false
         );
     }
 
@@ -84,23 +94,25 @@ contract SwapTest is Script {
         // Combine actions and params into inputs
         inputs[0] = abi.encode(actions, params);
 
-        // Print current balance of input tokens
+        if (Currency.unwrap(key.currency0) != address(0)) {
+            IERC20(Currency.unwrap(key.currency0)).approve(address(permit2), type(uint256).max);
+            permit2.approve(Currency.unwrap(key.currency0), address(router), amountIn, type(uint48).max);
+        }
+        if (Currency.unwrap(key.currency1) != address(0)) {
+            IERC20(Currency.unwrap(key.currency1)).approve(address(permit2), type(uint256).max);
+            permit2.approve(Currency.unwrap(key.currency1), address(router), amountIn, type(uint48).max);
+        }
 
-        console.log("ETH balance of this ", key.currency0.balanceOf(address(this)));
-        console.log("USDC balance of this ", key.currency1.balanceOf(address(this)));
-
-        // Execute the swap
-        uint256 valueToPass = _zeroForOne ? 10 ether : 0;
-        router.execute{value: valueToPass}(commands, inputs, block.timestamp);
+        router.execute{value: amountIn}(commands, inputs, block.timestamp);
 
         // Verify and return the output amount
         amountOut = IERC20(Currency.unwrap(key.currency1)).balanceOf(address(this));
         require(amountOut >= minAmountOut, "Insufficient output amount");
 
-        // Print final balance of input tokens
-        console.log("ETH balance of this ", key.currency0.balanceOf(address(this)));
-        console.log("USDC balance of this ", key.currency1.balanceOf(address(this)));
-
         return amountOut;
     }
+
+    // Add these functions to receive ETH
+    receive() external payable {}
+    fallback() external payable {}
 }

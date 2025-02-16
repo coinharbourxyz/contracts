@@ -21,12 +21,6 @@ fi
 
 # Deploy the contract
 echo "Deploying SwapExample contract..."
-# forge create --rpc-url $ETH_RPC_URL \
-#     --constructor-args 0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af \
-#     --private-key $PRIVATE_KEY \
-#     --etherscan-api-key $ETHERSCAN_API_KEY \
-#     --verify \
-#     src/Swap.sol:Swap
 
 forge create --rpc-url $ETH_RPC_URL \
     --private-key $PRIVATE_KEY \
