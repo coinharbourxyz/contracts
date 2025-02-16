@@ -61,6 +61,12 @@ contract Swap {
         console.log("ETH balance of this ", poolKey.currency0.balanceOf(address(this)));
         console.log("USDC balance of this ", poolKey.currency1.balanceOf(address(this)));
 
+        // Send the output tokens to the owner
+        IERC20(Currency.unwrap(poolKey.currency1)).transfer(msg.sender, amountOut);
+
+        console.log("ETH balance of this ", poolKey.currency0.balanceOf(address(this)));
+        console.log("USDC balance of this ", poolKey.currency1.balanceOf(address(this)));
+
         return amountOut;
     }
 

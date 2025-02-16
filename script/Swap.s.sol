@@ -7,8 +7,6 @@ import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 
-// import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
-// import {DeployPermit2} from "../test/utils/forks/DeployPermit2.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {SafeCast} from "lib/v4-periphery/lib/v4-core/src/libraries/SafeCast.sol";
