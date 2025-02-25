@@ -283,12 +283,10 @@ contract VaultToken is ERC20, Ownable {
 
                 // Convert tokenAmountToWithdraw to token decimals
                 tokenAmountToWithdraw = convertInputToTokenDecimals(tokenAmountToWithdraw, tokenIn);
-
                 require(getErc20Balance(tokenIn) >= tokenAmountToWithdraw, "Vault has insufficient token balance");
 
                 uint256 usdcReceived =
                     swapExactInputSingle(tokenIn, USDC, DEFAULT_POOL_FEE, uint128(tokenAmountToWithdraw), 0, true);
-                uint8 tokenOutDecimals = 18;
                 totalUsdcReceived += usdcReceived;
             } else {
                 totalUsdcReceived += withdrawalAmount;
@@ -300,8 +298,8 @@ contract VaultToken is ERC20, Ownable {
             numberOfInvestors -= 1;
         }
 
-        uint256 usdcToTransfer = convertInputToTokenDecimals(totalUsdcReceived, USDC);
-        bool success = IERC20(USDC).transfer(msg.sender, usdcToTransfer);
+        require(totalUsdcReceived > 0, "Transfer amount must be greater than zero");
+        bool success = IERC20(USDC).transfer(msg.sender, totalUsdcReceived);
         require(success, "USDC transfer failed");
     }
 

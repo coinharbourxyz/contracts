@@ -79,34 +79,43 @@ contract VaultTest is Test {
         assertEq(vault.calculateMarketCap(), 0);
     }
 
-    function testDeposit() public {
-        uint256 initialBalance = usdc.balanceOf(alice);
-        uint256 depositAmount = 10_000 * 1e6; // 10k USDC
-
-        vm.startPrank(alice);
-        vault.deposit(depositAmount);
-
-        assertEq(vault.getNumberOfInvestors(), 1);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        // vault.deposit(depositAmount / 2);
-        vm.stopPrank();
-    }
-
-    // function testWithdraw() public {
+    // function testDeposit() public {
+    //     uint256 initialBalance = usdc.balanceOf(alice);
     //     uint256 depositAmount = 10_000 * 1e6; // 10k USDC
 
     //     vm.startPrank(alice);
     //     vault.deposit(depositAmount);
 
-    //     vm.roll(block.number + 1);
+    //     assertEq(vault.getNumberOfInvestors(), 1);
+    //     vm.stopPrank();
 
-    //     uint256 depositAmountToWithdraw = depositAmount * 90 / 100;
-
-    //     vault.withdraw(depositAmountToWithdraw);
+    //     vm.startPrank(bob);
+    //     // vault.deposit(depositAmount / 2);
     //     vm.stopPrank();
     // }
+
+    function testWithdraw() public {
+        uint256 depositAmount = 10_000 * 1e6; // 10k USDC
+
+        vm.startPrank(alice);
+        vault.deposit(depositAmount);
+
+        console.log("deposit completed");
+        console.log("vault.balanceOf(alice)", vault.balanceOf(alice));
+        console.log("vault.totalSupply()", vault.totalSupply());
+
+        vm.roll(block.number + 1);
+
+        uint256 depositAmountToWithdraw = depositAmount * 10 / 100;
+
+        vault.withdraw(depositAmountToWithdraw);
+
+        console.log("withdraw completed");
+        console.log("vault.balanceOf(alice)", vault.balanceOf(alice));
+        console.log("vault.totalSupply()", vault.totalSupply());
+
+        vm.stopPrank();
+    }
 
     // function testUpdateAssetsAndWeights() public {
     //     // First make a deposit to have some assets in the vault
