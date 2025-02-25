@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project utilizes Foundry for smart contract development and testing, with integration of Chainlink oracles and Uniswap V3. The setup allows for testing against a mainnet fork using Anvil.
+This project utilizes Foundry for smart contract development and testing, with integration of Chainlink oracles and Uniswap V4. The setup allows for testing against a mainnet fork using Anvil.
 
 ## Prerequisites
 

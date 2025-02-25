@@ -19,16 +19,28 @@ if [ -z "$ETHERSCAN_API_KEY" ]; then
     exit 1
 fi
 
+echo "Generating ABI and Bytecode..."
+
+# Create directories if they don't exist
+mkdir -p out/abi
+mkdir -p out/bytecode
+
+# Generate Bytecode & JSON ABI
+forge build --via-ir
+
+# Copy from out/vault.sol/VaultToken.json to ./abi.json
+cp out/vault.sol/VaultToken.json abi.json
+
 # Deploy the contract
-echo "Deploying SwapExample contract..."
+# echo "Deploying Vault contract..."
 
-forge create --rpc-url $ETH_RPC_URL \
-    --private-key $PRIVATE_KEY \
-    --via-ir --broadcast \
-    --etherscan-api-key $ETHERSCAN_API_KEY \
-    --verify \
-    src/Swap.sol:Swap \
-    --constructor-args "0xA51afAFe0263b40EdaEf0Df8781eA9aa03E381a3" \
+# forge create --rpc-url $ETH_RPC_URL \
+#     --private-key $PRIVATE_KEY \
+#     --via-ir --broadcast \
+#     --etherscan-api-key $ETHERSCAN_API_KEY \
+#     --verify \
+#     src/vault.sol:VaultToken \
+#     --constructor-args "0xA51afAFe0263b40EdaEf0Df8781eA9aa03E381a3" \
 
 
-echo "Deployment complete!" 
+# echo "Deployment complete!" 

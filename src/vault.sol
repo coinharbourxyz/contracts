@@ -39,17 +39,17 @@ contract VaultToken is ERC20, Ownable {
     uint256 private constant TOTAL_WEIGHT = 100;
     uint256 private constant SCALE = 1e18;
     uint24 private constant DEFAULT_POOL_FEE = 3000;
-    
+
     // Immutable addresses
-    address payable private immutable UNIVERSAL_ROUTER = payable(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af);
-    address payable private immutable PERMIT2_ADDRESS = payable(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address private immutable USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address private immutable ETH = address(0);
-    
+    address payable private immutable UNIVERSAL_ROUTER;
+    address payable private immutable PERMIT2_ADDRESS;
+    address private immutable USDC;
+    address private immutable ETH;
+
     // Contract instances
-    UniversalRouter public immutable router = UniversalRouter(UNIVERSAL_ROUTER);
-    IPermit2 public immutable permit2 = IPermit2(PERMIT2_ADDRESS);
-    IBlocksense public immutable ethPriceFeed = IBlocksense(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+    UniversalRouter public immutable router;
+    IPermit2 public immutable permit2;
+    IBlocksense public immutable ethPriceFeed;
 
     struct TokenWeights {
         address tokenAddress;
@@ -64,7 +64,12 @@ contract VaultToken is ERC20, Ownable {
         string memory name,
         address[] memory tokenAddresses,
         address[] memory blocksensePriceAggregators,
-        uint256[] memory weights
+        uint256[] memory weights,
+        address universalRouterAddress,
+        address permit2Address,
+        address usdcAddress,
+        address ethAddress,
+        address blocksensePriceAggregatorAddress
     ) ERC20(name, name) Ownable(msg.sender) {
         require(
             tokenAddresses.length == blocksensePriceAggregators.length
@@ -88,6 +93,17 @@ contract VaultToken is ERC20, Ownable {
                 })
             );
         }
+
+        // Set immutable addresses in the constructor
+        UNIVERSAL_ROUTER = payable(universalRouterAddress);
+        PERMIT2_ADDRESS = payable(permit2Address);
+        USDC = usdcAddress;
+        ETH = ethAddress;
+
+        // Initialize contract instances
+        router = UniversalRouter(UNIVERSAL_ROUTER);
+        permit2 = IPermit2(PERMIT2_ADDRESS);
+        ethPriceFeed = IBlocksense(blocksensePriceAggregatorAddress);
     }
 
     function getTokenDistributionCount() public view returns (uint256) {
@@ -179,7 +195,8 @@ contract VaultToken is ERC20, Ownable {
         require(amount > 0, "Invalid amount");
         uint256 vaultValueBeforeInDecimals = calculateMarketCap();
 
-        IERC20(USDC).transferFrom(msg.sender, address(this), amount);
+        bool success = IERC20(USDC).transferFrom(msg.sender, address(this), amount);
+        require(success, "Transfer failed!");
 
         uint8 tokenOutDecimals = IERC20Metadata(USDC).decimals();
         amount = convertInputTo18Decimals(amount, tokenOutDecimals);
@@ -201,14 +218,7 @@ contract VaultToken is ERC20, Ownable {
             // Perform the swap using Universal Router
             if (tokenOut != USDC) {
                 amountIn = uint128(convertInputToTokenDecimals(amountIn, USDC));
-                amountOut = swapExactInputSingle(
-                    USDC,
-                    tokenOut,
-                    DEFAULT_POOL_FEE,
-                    uint128(amountIn),
-                    0,
-                    true
-                );
+                amountOut = swapExactInputSingle(USDC, tokenOut, DEFAULT_POOL_FEE, uint128(amountIn), 0, true);
                 uint8 tokenOutDecimals = 18;
                 if (tokenOut != address(0)) {
                     tokenOutDecimals = IERC20Metadata(tokenOut).decimals();
@@ -321,14 +331,7 @@ contract VaultToken is ERC20, Ownable {
 
             if (tokenAddr != ETH && balance > 0) {
                 balance = convertInputToTokenDecimals(balance, tokenAddr);
-                swapExactInputSingle(
-                    tokenAddr,
-                    ETH,
-                    DEFAULT_POOL_FEE,
-                    uint128(balance),
-                    0,
-                    true
-                );
+                swapExactInputSingle(tokenAddr, ETH, DEFAULT_POOL_FEE, uint128(balance), 0, true);
             }
         }
 
@@ -355,14 +358,8 @@ contract VaultToken is ERC20, Ownable {
 
             // Perform the swap from ETH to the new token
             if (tokenOut != ETH && amountToSwap > 0) {
-                uint256 amountReceived = swapExactInputSingle(
-                    ETH,
-                    tokenOut,
-                    DEFAULT_POOL_FEE,
-                    uint128(amountToSwap),
-                    0,
-                    true
-                );
+                uint256 amountReceived =
+                    swapExactInputSingle(ETH, tokenOut, DEFAULT_POOL_FEE, uint128(amountToSwap), 0, true);
             }
         }
     }
@@ -452,7 +449,8 @@ contract VaultToken is ERC20, Ownable {
             permit2.approve(Currency.unwrap(key.currency1), address(router), amountIn, type(uint48).max);
         }
 
-        router.execute{value: amountIn}(commands, inputs, block.timestamp);
+        // router.execute{value: amountIn}(commands, inputs, block.timestamp);
+        router.execute(commands, inputs, block.timestamp);
 
         // Verify and return the output amount
         uint256 amountAfter = needsSort
