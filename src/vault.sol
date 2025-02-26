@@ -447,8 +447,12 @@ contract VaultToken is ERC20, Ownable {
             permit2.approve(Currency.unwrap(key.currency1), address(router), amountIn, type(uint48).max);
         }
 
-        // router.execute{value: amountIn}(commands, inputs, block.timestamp);
-        router.execute(commands, inputs, block.timestamp);
+        // Execute the swap with ETH value if needed
+        if (token0 == address(0)) {
+            router.execute{value: amountIn}(commands, inputs, block.timestamp);
+        } else {
+            router.execute(commands, inputs, block.timestamp);
+        }
 
         // Verify and return the output amount
         uint256 amountAfter = needsSort

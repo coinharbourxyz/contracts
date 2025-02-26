@@ -22,14 +22,14 @@ contract VaultTest is Test {
 
         // Setup token addresses and weights for vault
         address[] memory tokens = new address[](2);
-        tokens[0] = address(eth);
-        tokens[1] = address(wbtc);
+        tokens[0] = address(wbtc);
+        tokens[1] = address(eth);
 
         // Actual Blocksense price feed addresses
         address[] memory priceFeeds = new address[](2);
-        priceFeeds[0] = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612; // ETH/USD
-        // priceFeeds[0] = 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6; // 1INCH/USD
-        priceFeeds[1] = 0x6ce185860a4963106506C203335A2910413708e9; // BTC/USD
+        priceFeeds[0] = 0x6ce185860a4963106506C203335A2910413708e9; // BTC/USD
+        priceFeeds[1] = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612; // ETH/USD
+
 
         uint256[] memory weights = new uint256[](2);
         weights[0] = 50;
@@ -69,10 +69,10 @@ contract VaultTest is Test {
     function testInitialState() public {
         assertEq(vault.getTokenDistributionCount(), 2);
         (address token0, uint256 weight0) = vault.getTokenDistributionData(0);
-        assertEq(token0, address(eth));
+        assertEq(token0, address(wbtc));
         assertEq(weight0, 50);
         (address token1, uint256 weight1) = vault.getTokenDistributionData(1);
-        assertEq(token1, address(wbtc));
+        assertEq(token1, address(eth));
         assertEq(weight1, 50);
 
         // Vault Market Cap should be 0
