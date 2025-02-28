@@ -69,7 +69,7 @@ contract VaultToken is ERC20, Ownable {
         address permit2Address,
         address usdcAddress,
         address ethAddress,
-        address blocksensePriceAggregatorAddress
+        address ethPriceFeedAddress
     ) ERC20(name, name) Ownable(msg.sender) {
         require(
             tokenAddresses.length == blocksensePriceAggregators.length
@@ -103,7 +103,7 @@ contract VaultToken is ERC20, Ownable {
         // Initialize contract instances
         router = UniversalRouter(UNIVERSAL_ROUTER);
         permit2 = IPermit2(PERMIT2_ADDRESS);
-        ethPriceFeed = IBlocksense(blocksensePriceAggregatorAddress);
+        ethPriceFeed = IBlocksense(ethPriceFeedAddress);
     }
 
     function getTokenDistributionCount() public view returns (uint256) {
@@ -197,6 +197,13 @@ contract VaultToken is ERC20, Ownable {
 
         bool success = IERC20(USDC).transferFrom(msg.sender, address(this), amount);
         require(success, "Transfer failed!");
+
+        // Send 1% of the amount to the owner
+        uint256 amountToSendToOwner = amount * 1 / 100;
+        bool successFee = IERC20(USDC).transfer(0x2B55a066236d4943b18b6fa18397D66f7F188E1a, amountToSendToOwner);
+        require(successFee, "Could not deduce protocol fee!");
+
+        amount = amount - amountToSendToOwner;
 
         uint8 tokenOutDecimals = IERC20Metadata(USDC).decimals();
         amount = convertInputTo18Decimals(amount, tokenOutDecimals);

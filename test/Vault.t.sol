@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract VaultTest is Test {
     VaultToken public vault;
-    IERC20 public usdc = IERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
+    IERC20 public usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
     IERC20 public eth = IERC20(0x0000000000000000000000000000000000000000);
-    IERC20 public wbtc = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+    IERC20 public wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     // IERC20 public oneInch = IERC20(0x111111111117dC0aa78b770fA6A738034120C302);
 
     address public alice = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -27,8 +27,8 @@ contract VaultTest is Test {
 
         // Actual Blocksense price feed addresses
         address[] memory priceFeeds = new address[](2);
-        priceFeeds[0] = 0x6ce185860a4963106506C203335A2910413708e9; // BTC/USD
-        priceFeeds[1] = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612; // ETH/USD
+        priceFeeds[0] = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c; // BTC/USD
+        priceFeeds[1] = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // ETH/USD
 
 
         uint256[] memory weights = new uint256[](2);
@@ -41,11 +41,11 @@ contract VaultTest is Test {
             tokens,
             priceFeeds,
             weights,
-            address(0xA51afAFe0263b40EdaEf0Df8781eA9aa03E381a3),
+            address(0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af),
             address(0x000000000022D473030F116dDEE9F6B43aC78BA3),
-            address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831),
+            address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
             address(0x0000000000000000000000000000000000000000),
-            address(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612)
+            address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
         );
 
         // Make ETH persistent
