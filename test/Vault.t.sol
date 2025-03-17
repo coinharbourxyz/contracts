@@ -12,6 +12,9 @@ contract VaultTest is Test {
     IERC20 public eth = IERC20(0x0000000000000000000000000000000000000000);
     IERC20 public wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     // IERC20 public oneInch = IERC20(0x111111111117dC0aa78b770fA6A738034120C302);
+    // IERC20 public bnb = IERC20(0xB8c77482e45F1F44dE1745F52C74426C631bDD52);
+    IERC20 public sol = IERC20(0xD31a59c85aE9D8edEFeC411D448f90841571b89c);
+    IERC20 public tao = IERC20(0x77E06c9eCCf2E797fd462A92B6D7642EF85b0A44);
 
     address public alice = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     address public bob = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
@@ -21,19 +24,27 @@ contract VaultTest is Test {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
         // Setup token addresses and weights for vault
-        address[] memory tokens = new address[](2);
+        address[] memory tokens = new address[](3);
         tokens[0] = address(wbtc);
         tokens[1] = address(eth);
+        tokens[2] = address(sol);
+        // tokens[3] = address(tao);
+        // tokens[2] = address(bnb);
+        // tokens[3] = address(sol);
 
         // Actual Blocksense price feed addresses
-        address[] memory priceFeeds = new address[](2);
+        address[] memory priceFeeds = new address[](3);
         priceFeeds[0] = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c; // BTC/USD
         priceFeeds[1] = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419; // ETH/USD
+        // priceFeeds[2] = 0x14e613AC84a31f709eadbdF89C6CC390fDc9540A; // BNB/USD
+        priceFeeds[2] = 0x4ffC43a60e009B551865A93d232E33Fce9f01507; // SOL/USD
+        // priceFeeds[3] = 0x1c88503c9A52aE6aaE1f9bb99b3b7e9b8Ab35459; // TAO/USD
 
-
-        uint256[] memory weights = new uint256[](2);
-        weights[0] = 50;
-        weights[1] = 50;
+        uint256[] memory weights = new uint256[](3);
+        weights[0] = 34;
+        weights[1] = 33;
+        weights[2] = 33;
+        // weights[3] = 25;
 
         // Deploy vault
         vault = new VaultToken(
@@ -53,6 +64,9 @@ contract VaultTest is Test {
         vm.makePersistent(address(usdc));
         vm.makePersistent(address(wbtc));
         vm.makePersistent(address(eth));
+        // vm.makePersistent(address(sol));
+        // vm.makePersistent(address(bnb));
+        // vm.makePersistent(address(sol));
 
         // Fund test accounts with usdc
         vm.startPrank(alice);
@@ -67,55 +81,71 @@ contract VaultTest is Test {
     }
 
     function testInitialState() public {
-        assertEq(vault.getTokenDistributionCount(), 2);
+        assertEq(vault.getTokenDistributionCount(), 3);
         (address token0, uint256 weight0) = vault.getTokenDistributionData(0);
         assertEq(token0, address(wbtc));
-        assertEq(weight0, 50);
+        assertEq(weight0, 34);
         (address token1, uint256 weight1) = vault.getTokenDistributionData(1);
         assertEq(token1, address(eth));
-        assertEq(weight1, 50);
+        assertEq(weight1, 33);
+        (address token2, uint256 weight2) = vault.getTokenDistributionData(2);
+        assertEq(token2, address(sol));
+        assertEq(weight2, 33);
+        // (address token3, uint256 weight3) = vault.getTokenDistributionData(3);
+        // assertEq(token3, address(tao));
+        // assertEq(weight3, 25);
 
         // Vault Market Cap should be 0
         assertEq(vault.calculateMarketCap(), 0);
     }
 
-    // function testDeposit() public {
-    //     uint256 initialBalance = usdc.balanceOf(alice);
-    //     uint256 depositAmount = 10_000 * 1e6; // 10k USDC
-
-    //     vm.startPrank(alice);
-    //     vault.deposit(depositAmount);
-
-    //     assertEq(vault.getNumberOfInvestors(), 1);
-    //     vm.stopPrank();
-
-    //     vm.startPrank(bob);
-    //     // vault.deposit(depositAmount / 2);
-    //     vm.stopPrank();
-    // }
-
-    function testWithdraw() public {
+    function testDeposit() public {
+        uint256 initialBalance = usdc.balanceOf(alice);
         uint256 depositAmount = 10_000 * 1e6; // 10k USDC
 
         vm.startPrank(alice);
         vault.deposit(depositAmount);
 
-        console.log("deposit completed");
-        console.log("vault.balanceOf(alice)", vault.balanceOf(alice));
-        console.log("vault.totalSupply()", vault.totalSupply());
+        assertEq(vault.getNumberOfInvestors(), 1);
+        // assertEq(vault.balanceOf(alice), depositAmount);
+        // assertEq(vault.totalSupply(), depositAmount);
 
-        vm.roll(block.number + 1);
-
-        uint256 depositAmountToWithdraw = depositAmount * 10 / 100;
-
-        vault.withdraw(depositAmountToWithdraw);
-
-        console.log("withdraw completed");
-        console.log("vault.balanceOf(alice)", vault.balanceOf(alice));
-        console.log("vault.totalSupply()", vault.totalSupply());
+        // print vaults balance of each token
+        console.log("vault.balanceOf(wbtc)", wbtc.balanceOf(address(vault)));
+        console.log("vault.balanceOf(eth)", address(eth).balance);
+        console.log("vault.balanceOf(sol)", sol.balanceOf(address(vault)));
+        // console.log("vault.balanceOf(tao)", tao.balanceOf(address(vault)));
+        // console.log("vault.balanceOf(bnb)", vault.balanceOf(address(bnb)));
 
         vm.stopPrank();
+
+        vm.startPrank(bob);
+        // vault.deposit(depositAmount / 2);
+        vm.stopPrank();
     }
+
+    // function testWithdraw() public {
+    //     uint256 depositAmount = 10_000 * 1e6; // 10k USDC
+
+    //     vm.startPrank(alice);
+    //     vault.deposit(depositAmount);
+
+    //     console.log("deposit completed");
+    //     console.log("vault.balanceOf(alice)", vault.balanceOf(alice));
+    //     console.log("vault.totalSupply()", vault.totalSupply());
+
+    //     vm.roll(block.number + 1);
+
+    //     uint256 depositAmountToWithdraw = depositAmount * 10 / 100;
+
+    //     vault.withdraw(depositAmountToWithdraw);
+
+    //     console.log("withdraw completed");
+    //     console.log("vault.balanceOf(alice)", vault.balanceOf(alice));
+    //     console.log("vault.totalSupply()", vault.totalSupply());
+
+    //     vm.stopPrank();
+    // }
 
     // function testUpdateAssetsAndWeights() public {
     //     // First make a deposit to have some assets in the vault

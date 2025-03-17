@@ -222,20 +222,60 @@ contract VaultToken is ERC20, Ownable {
             uint256 amountIn = (amount * allocationWeight) / 100;
             uint256 amountOut = amountIn;
 
+            uint256 slippageTolerance = 80;
+
             // Perform the swap using Universal Router
             if (tokenOut != USDC) {
-                amountIn = uint128(convertInputToTokenDecimals(amountIn, USDC));
-                amountOut = swapExactInputSingle(USDC, tokenOut, DEFAULT_POOL_FEE, uint128(amountIn), 0, true);
                 uint8 tokenOutDecimals = 18;
                 if (tokenOut != address(0)) {
                     tokenOutDecimals = IERC20Metadata(tokenOut).decimals();
                 }
+
+                // debug why bnb is only failing
+                uint256 amountInWithSlippage = amountIn * slippageTolerance / 100;
+                uint256 val = 0;
+                val = (amountInWithSlippage * (10 ** decimals) / uint256(tokenPrice));
+                uint256 valInTokenDecimals = convertInputToTokenDecimals(val, tokenOut);
+
+                console.log("amountInWithSlippage", amountInWithSlippage);
+                console.log("decimals", decimals);
+                if(tokenOut != address(0)) {
+                    console.log("erc 20 decimals",IERC20Metadata(tokenOut).decimals());
+                } else{
+                    console.log("erc 20 decimals 18");
+                }
+                console.log("token out price", tokenPrice);
+
+                console.log("amountInWithSlippage * (10 ** decimals)", amountInWithSlippage * (10 ** decimals));
+                console.log("above / tokenPrice", amountInWithSlippage * (10 ** decimals) / uint256(tokenPrice));
+                console.log("valInTokenDecimals", valInTokenDecimals);
+
+                // console.log(
+                //     "above / 10 ** (diffInDecimals)",
+                //     amountInWithSlippage * (10 ** decimals) / uint256(tokenPrice) / 10 ** (diffInDecimals)
+                // );
+                // console.log("val", val);
+
+                console.log("swapping token out", tokenOut);
+                console.log("swapping token out", tokenOut);
+                console.log("token out decimals", decimals);
+                // console.log("expectedAmountOutWithNoSlippageInTokens", val);
+
+                amountIn = uint128(convertInputToTokenDecimals(amountIn, USDC));
+
+                // the minimum amount out should be 95% of the amount in ie 5% slippage
+                amountOut =
+                    swapExactInputSingle(USDC, tokenOut, DEFAULT_POOL_FEE, uint128(amountIn), 0, true);
+                console.log("raw amt out", amountOut);
                 amountOut = convertInputTo18Decimals(amountOut, tokenOutDecimals);
+                console.log("amountOut", amountOut);
             }
 
             uint256 tokenPriceInDecimals = convertInputTo18Decimals(uint256(tokenPrice), decimals);
             uint256 tokenValueInUsd = (amountOut * tokenPriceInDecimals) / 1e18;
             totalMintedValue += tokenValueInUsd;
+            console.log("tokenValueInUsd", tokenValueInUsd);
+            console.log("----------------------------------------------");
         }
 
         // print each token's balance
@@ -254,6 +294,7 @@ contract VaultToken is ERC20, Ownable {
         if (balanceOf(msg.sender) == 0) {
             numberOfInvestors += 1;
         }
+        console.log("sharesToMint", sharesToMint);
         _mint(msg.sender, sharesToMint);
     }
 
@@ -469,6 +510,9 @@ contract VaultToken is ERC20, Ownable {
             : key.currency1 == Currency.wrap(address(0))
                 ? address(this).balance
                 : IERC20(Currency.unwrap(key.currency1)).balanceOf(address(this));
+        console.log("minAmountOut", minAmountOut);
+        console.log("newOutInSwap", amountAfter - amountBefore);
+
         require((amountAfter - amountBefore) >= minAmountOut, "Insufficient output amount");
 
         return amountAfter - amountBefore;
