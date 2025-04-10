@@ -273,7 +273,7 @@ contract VaultToken is ERC20, Ownable {
             uint256 amountOut = amountIn;
 
             // Perform the swap using Universal Router
-            uint256 slippageTolerance = 50;
+            uint256 slippageTolerance = 69;
             if (tokenOut != USDC) {
                 (uint128 minAmountOut, uint8 tokenOutDecimals) = minAmountOutInOutDecimals(slippageTolerance, amountIn, USDC, tokenOut, tokenPrice, decimals);
                 amountOut = swapOnBest(USDC, tokenOut, amountIn, uint256(minAmountOut));
@@ -333,7 +333,7 @@ contract VaultToken is ERC20, Ownable {
                 // Convert tokenAmountToWithdraw to token decimals
                 tokenAmountToWithdraw = convertInputToTokenDecimals(tokenAmountToWithdraw, tokenIn);
 
-                uint256 slippageTolerance = 50;
+                uint256 slippageTolerance = 69;
                 uint256 minUSDtoWithdraw = (usdToWithdraw * allocationWeight * slippageTolerance) / (100 * 100);
                 uint256 usdcReceived = withdrawViaBest(tokenIn, USDC, uint128(tokenAmountToWithdraw), uint128(minUSDtoWithdraw));
 
@@ -383,7 +383,7 @@ contract VaultToken is ERC20, Ownable {
                 uint256 amountOutIn18Decimals = (tokenPriceIn18 * balanceIn18) / 1e18;
                 uint256 amountOutInUSDDecimals = convertInputToTokenDecimals(amountOutIn18Decimals, USDC);
 
-                uint256 slippageTolerance = 50;
+                uint256 slippageTolerance = 69;
                 uint256 minUSDtoWithdraw = (amountOutInUSDDecimals * slippageTolerance) / 100;
             
                 uint256 balance = convertInputToTokenDecimals(balanceIn18, tokenAddr);
@@ -415,7 +415,7 @@ contract VaultToken is ERC20, Ownable {
 
             // Perform the swap from ETH to the new token
             if (tokenOut != USDC && amountToSwap > 0) {
-                uint256 slippageTolerance = 50;
+                uint256 slippageTolerance = 69;
                 (int256 tokenPrice, uint8 decimals) = getLatestPrice( IBlocksense(address(blocksensePriceAggregators[i])));
                 (uint128 minAmountOut, ) = minAmountOutInOutDecimals(slippageTolerance, amountToSwap, USDC, tokenOut, tokenPrice, decimals);
                 swapOnBest(USDC, tokenOut, amountToSwap , uint256(minAmountOut));
@@ -753,7 +753,7 @@ contract VaultToken is ERC20, Ownable {
                 uint256 amountOutIn18Decimals = (tokenPriceIn18 * balanceIn18) / 1e18;
                 uint256 amountOutInUSDDecimals = convertInputToTokenDecimals(amountOutIn18Decimals, USDC);
 
-                uint256 slippageTolerance = 50;
+                uint256 slippageTolerance = 69;
                 uint256 minUSDtoWithdraw = (amountOutInUSDDecimals * slippageTolerance) / 100;
 
                 uint256 balance = convertInputToTokenDecimals(balanceIn18, tokenAddr);
