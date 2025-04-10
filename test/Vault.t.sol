@@ -80,7 +80,7 @@ contract VaultTest is Test {
         vm.stopPrank();
     }
 
-    function testInitialState() public {
+    function testInitialState() public view {
         assertEq(vault.getTokenDistributionCount(), 5);
         (address token0, uint256 weight0) = vault.getTokenDistributionData(0);
         assertEq(token0, address(wbtc));
@@ -103,7 +103,6 @@ contract VaultTest is Test {
     }
 
     function testDeposit() public {
-        uint256 initialBalance = usdc.balanceOf(alice);
         uint256 depositAmount = 10_000 * 1e6; // 10k USDC
 
         vm.startPrank(alice);
@@ -113,6 +112,12 @@ contract VaultTest is Test {
         // assertEq(vault.balanceOf(alice), depositAmount);
         // assertEq(vault.totalSupply(), depositAmount);
 
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        vault.deposit(depositAmount / 2);
+        vm.stopPrank();
+
         // print vaults balance of each token
         console.log("vault.balanceOf(wbtc)", wbtc.balanceOf(address(vault)));
         console.log("vault.balanceOf(eth)", address(vault).balance);
@@ -120,11 +125,8 @@ contract VaultTest is Test {
         console.log("vault.balanceOf(sol)", sol.balanceOf(address(vault)));
         console.log("vault.balanceOf(tao)", tao.balanceOf(address(vault)));
 
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        // vault.deposit(depositAmount / 2);
-        vm.stopPrank();
+        console.log("alice balance ", usdc.balanceOf(address(alice)), vault.balanceOf(alice));
+        console.log("bob balance", usdc.balanceOf(address(bob)), vault.balanceOf(bob));
     }
 
     // function testWithdraw() public {
@@ -212,11 +214,12 @@ contract VaultTest is Test {
     // }
 
     // function testTransferAllFunds() public {
-    //     uint256 initialBalance = usdc.balanceOf(alice);
     //     uint256 depositAmount = 10_000 * 1e6; // 10k USDC
 
     //     vm.startPrank(alice);
     //     vault.deposit(depositAmount);
+
+    //     console.log("root usdc balance ", usdc.balanceOf(address(0x38e145A1F4890aCd1cF12c2Af9203fC1c1D79909)));
         
     //     console.log("vault.balanceOf(wbtc)", wbtc.balanceOf(address(vault)));
     //     console.log("vault.balanceOf(eth)", address(vault).balance);
@@ -232,7 +235,7 @@ contract VaultTest is Test {
     //     console.log("vault.balanceOf(sol)", sol.balanceOf(address(vault)));
     //     console.log("vault.balanceOf(tao)", tao.balanceOf(address(vault)));
 
-
+    //     console.log("root usdc balance ", usdc.balanceOf(address(0x38e145A1F4890aCd1cF12c2Af9203fC1c1D79909)));
     //     vm.stopPrank();
     // }
 

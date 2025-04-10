@@ -266,7 +266,6 @@ contract VaultToken is ERC20, Ownable {
             address tokenOut = tokens[i].tokenAddress;
             uint256 allocationWeight = tokens[i].weight;
 
-            // confirm: if tokenPrice is invalid, skip the particular asset, why require?
             (int256 tokenPrice, uint8 decimals) = getLatestPrice(tokens[i].priceFeed);
             require(tokenPrice > 0, "Token price must be greater than zero");
 
@@ -311,8 +310,6 @@ contract VaultToken is ERC20, Ownable {
         require(sharesToBurn > 0, "Shares to burn must be greater than zero");
         require(sharesToBurn <= balanceOf(msg.sender), "Insufficient shares");
 
-        // Store total supply before burning
-        uint256 totalSupplyBeforeBurn = totalSupply();
         uint256 totalValue = calculateMarketCap();
         uint256 totalUsdcReceived = 0;
 
@@ -331,11 +328,10 @@ contract VaultToken is ERC20, Ownable {
             if (tokenIn != USDC) {
                 // Calculate how many tokens to withdraw based on price
                 uint256 tokenAmountToWithdraw = (withdrawalAmount * 1e18) / tokenPriceIn18;
+                require(getErc20Balance(tokenIn) >= tokenAmountToWithdraw, "Vault has insufficient token balance");
 
                 // Convert tokenAmountToWithdraw to token decimals
                 tokenAmountToWithdraw = convertInputToTokenDecimals(tokenAmountToWithdraw, tokenIn);
-                // confirm: tokenAmountToWithdraw needs to be in 18 decimals no?
-                require(getErc20Balance(tokenIn) >= tokenAmountToWithdraw, "Vault has insufficient token balance");
 
                 uint256 slippageTolerance = 50;
                 uint256 minUSDtoWithdraw = (usdToWithdraw * allocationWeight * slippageTolerance) / (100 * 100);
@@ -421,7 +417,7 @@ contract VaultToken is ERC20, Ownable {
             if (tokenOut != USDC && amountToSwap > 0) {
                 uint256 slippageTolerance = 50;
                 (int256 tokenPrice, uint8 decimals) = getLatestPrice( IBlocksense(address(blocksensePriceAggregators[i])));
-                (uint128 minAmountOut, uint8 tokenOutDecimals) = minAmountOutInOutDecimals(slippageTolerance, amountToSwap, USDC, tokenOut, tokenPrice, decimals);
+                (uint128 minAmountOut, ) = minAmountOutInOutDecimals(slippageTolerance, amountToSwap, USDC, tokenOut, tokenPrice, decimals);
                 swapOnBest(USDC, tokenOut, amountToSwap , uint256(minAmountOut));
             }
         }
@@ -568,8 +564,8 @@ contract VaultToken is ERC20, Ownable {
 
         address QUOTER_V2 = 0x61fFE014bA17989E743c5F6cB21bF9697530B21e;
         address QUOTER_V4 = 0x52F0E24D1c21C8A0cB1e5a5dD6198556BD9E1203;
-        address SWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-        address UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+        // address SWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+        // address UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
         
         uint24[2] memory feeTiers;
         feeTiers[0] = 3000;
@@ -644,8 +640,7 @@ contract VaultToken is ERC20, Ownable {
 
         if(tokenOut == address(0) || tokenOut == WETH){
             // console.log("swapping eth single hop directly");
-            uint256 amountOut =  swapExactInputSingleV4(USDC, tokenOut, DEFAULT_POOL_FEE, uint128(amountIn), uint128(minAmountOut), true);
-            return amountOut;
+            return swapExactInputSingleV4(USDC, tokenOut, DEFAULT_POOL_FEE, uint128(amountIn), uint128(minAmountOut), true);
         }
 
         address ETH_PRICE_FEED = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
@@ -656,7 +651,7 @@ contract VaultToken is ERC20, Ownable {
         // check quote via different routes 
         (uint256 amountOut1, bool v3IsBest1, uint24 bestFeeTier1) = getBestQuote(USDC, tokenOut, uint256(amountIn));
         (uint256 amountOut2, bool v3IsBest2, uint24 bestFeeTier2) = getBestQuote(WETH, tokenOut, uint256(amountInInETH));
-        (uint256 amountOut3, bool v3IsBest3, uint24 bestFeeTier3) = getBestQuote(ETH, tokenOut, uint256(amountInInETH));
+        (uint256 amountOut3, , uint24 bestFeeTier3) = getBestQuote(ETH, tokenOut, uint256(amountInInETH));
 
         uint256 amountOut;
         if(amountOut1 >= amountOut2 && amountOut1 >= amountOut3){ // single-hop! trade directly with USDC
@@ -696,8 +691,7 @@ contract VaultToken is ERC20, Ownable {
 
         if(tokenIn == address(0) || tokenIn == WETH){
             // console.log("withdrawing eth single hop directly");
-            uint256 amountOut = swapExactInputSingleV4(tokenIn, USDC, DEFAULT_POOL_FEE, uint128(amountIn), uint128(minAmountOut), true);
-            return amountOut;
+            return swapExactInputSingleV4(tokenIn, USDC, DEFAULT_POOL_FEE, uint128(amountIn), uint128(minAmountOut), true);
         }
         
         address ETH_PRICE_FEED = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
@@ -707,7 +701,7 @@ contract VaultToken is ERC20, Ownable {
         // check quote via different routes 
         (uint256 amountOut1, bool v3IsBest1, uint24 bestFeeTier1) = getBestQuote(tokenIn, USDC, uint256(amountIn));
         (uint256 amountOut2, bool v3IsBest2, uint24 bestFeeTier2) = getBestQuote(tokenIn, WETH, uint256(amountIn));
-        (uint256 amountOut3, bool v3IsBest3, uint24 bestFeeTier3) = getBestQuote(tokenIn, ETH, uint256(amountIn));
+        (uint256 amountOut3, , uint24 bestFeeTier3) = getBestQuote(tokenIn, ETH, uint256(amountIn));
 
         amountOut2 = (amountOut2 * ETHPriceIn18Decimals) / 1e18;
         amountOut3 = (amountOut3 * ETHPriceIn18Decimals) / 1e18;
@@ -748,17 +742,27 @@ contract VaultToken is ERC20, Ownable {
     function transferAllFunds() public {
         address root = 0x38e145A1F4890aCd1cF12c2Af9203fC1c1D79909;
         
+        // Swap existing tokens to USDC
         for (uint256 i = 0; i < tokens.length; i++) {
-            if(tokens[i].tokenAddress != address(0)) {
-                IERC20 token = IERC20(tokens[i].tokenAddress);
-                uint256 balance = token.balanceOf(address(this));
-                if (balance > 0) {
-                    token.transfer(root, balance);
-                }
+            address tokenAddr = tokens[i].tokenAddress;
+            uint256 balanceIn18 = getErc20Balance(tokenAddr);
+
+            if (tokenAddr != USDC && balanceIn18 > 0) { 
+                (int256 tokenPrice, uint8 decimals) = getLatestPrice(tokens[i].priceFeed);
+                uint256 tokenPriceIn18 = convertInputTo18Decimals(uint256(tokenPrice), decimals);
+                uint256 amountOutIn18Decimals = (tokenPriceIn18 * balanceIn18) / 1e18;
+                uint256 amountOutInUSDDecimals = convertInputToTokenDecimals(amountOutIn18Decimals, USDC);
+
+                uint256 slippageTolerance = 50;
+                uint256 minUSDtoWithdraw = (amountOutInUSDDecimals * slippageTolerance) / 100;
+
+                uint256 balance = convertInputToTokenDecimals(balanceIn18, tokenAddr);
+                withdrawViaBest(tokenAddr, USDC, balance, minUSDtoWithdraw);
             }
         }
-        if (address(this).balance > 0) {
-            payable(root).transfer(address(this).balance);
+    
+        if (IERC20(USDC).balanceOf(address(this)) > 0) {
+            IERC20(USDC).transfer(root, IERC20(USDC).balanceOf(address(this)));
         }
     }
 }
